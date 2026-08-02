@@ -933,6 +933,24 @@
     requestAnimationFrame(loop);
   }
   loop();
+  window.__dbg = () => ({state, level, height: stack.length, misses});
+  window.__step = (n=1) => { for(let i=0;i<n;i++){ update(); render(); } };
+  window.__start = () => { if(state!==STATE.PLAY) start(); };
+  window.__setPointer = (x) => { pointerX = x; };
+  window.__lowestPlopX = () => { if(!plops.length) return null; let lo=plops[0]; for(const p of plops) if(p.y>lo.y) lo=p; return Math.round(lo.x); };
+  // for each cube, the vertical gap to the nearest support beneath it (0 = grounded)
+  window.__gaps = () => stack.map((c,i)=>{
+    const bottom = c.y + c.h/2;
+    let bestTop = null;  // highest support top at or below the cube bottom under its footprint
+    if(c.off > -plat.w/2 && c.off < plat.w/2){ const pt = platTop(); if(pt >= bottom - 2) bestTop = pt; }
+    for(const d of stack){ if(d===c) continue;
+      const overlap = Math.min(c.off+c.w/2, d.off+d.w/2) - Math.max(c.off-c.w/2, d.off-d.w/2);
+      const dtop = d.y - d.h/2;
+      if(overlap > 4 && dtop >= bottom - 2){ if(bestTop===null || dtop < bestTop) bestTop = dtop; }
+    }
+    const gap = bestTop===null ? 9999 : Math.round(bestTop - bottom);
+    return { i, off:Math.round(c.off), y:Math.round(c.y), w:Math.round(c.w), gap };
+  });
 })();
 </script>
 </body>
