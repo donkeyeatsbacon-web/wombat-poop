@@ -3,3 +3,6 @@
 Thumbs.db
 *~
 *.swp
+
+# local auto-commit watcher (not tracked)
+.autocommit.sh

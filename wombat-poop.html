@@ -203,15 +203,58 @@
     return { surf, supL, supR };
   }
 
-  function placePoop(p, off, restY, supL, supR){
-    // how centred it is on its support — near an edge is precarious (high tip)
-    const edge = Math.min(off - supL, supR - off);
-    const tip = clamp(1 - edge / Math.max(6, p.w*0.5), 0, 1);
-    stack.push({ off, x: plat.x + off, y: restY, w: p.w, h: p.h,
-                 hue: p.hue, squish: 1.4, rot: 0, tip });
+  // Box-collide a falling poop against the platform and stacked poops. Pushes
+  // it out of overlaps, bounces/rubs off sides, and tips it toward any
+  // unsupported side. Returns true if it's resting on something from above.
+  function collideFallingPoop(p){
+    let resting = false;
+    const hit = (ox, oy, ow, oh) => {
+      const dx = p.x - ox, dy = p.y - oy;
+      const px = (p.w/2 + ow/2) - Math.abs(dx);
+      const py = (p.h/2 + oh/2) - Math.abs(dy);
+      if(px <= 0 || py <= 0) return;
+      if(py <= px){
+        if(dy < 0){                                 // landed on top of it
+          p.y -= py;
+          if(p.vy > 0) p.vy *= -0.16;               // slight bounce
+          if(Math.abs(p.vy) < 0.5) p.vy = 0;
+          p.vx *= 0.55;                             // friction
+          resting = true;
+          // tip toward whichever side is unsupported (level if fully supported)
+          const oL = Math.max(p.x - p.w/2, ox - ow/2);
+          const oR = Math.min(p.x + p.w/2, ox + ow/2);
+          p.vr = (p.vr||0) + (p.x - (oL + oR)/2) * 0.0011;
+        } else {                                    // clipped it from below
+          p.y += py; if(p.vy < 0) p.vy = 0;
+        }
+      } else {                                      // bonked a side — deflect
+        if(dx < 0){ p.x -= px; p.vx = (p.vx > 0 ? -p.vx*0.4 : p.vx) - 0.25; }
+        else      { p.x += px; p.vx = (p.vx < 0 ? -p.vx*0.4 : p.vx) + 0.25; }
+        p.vr = (p.vr||0) + (dx < 0 ? -0.012 : 0.012);
+      }
+    };
+    hit(plat.x, plat.y, plat.w, plat.h);
+    for(const c of stack){
+      if(Math.abs(c.y - p.y) < 200 && Math.abs((plat.x + c.off) - p.x) < 200){
+        hit(plat.x + c.off, c.y, c.w, c.h);
+      }
+    }
+    return resting;
+  }
+
+  // A falling poop has come to rest — freeze it into the pile where it lies,
+  // keeping any tilt so it can sit crooked between others.
+  function settlePoop(p){
+    const off = p.x - plat.x;
+    const info = supportInfo(off, p.w);
+    let tip = 0.8;
+    if(info){ const edge = Math.min(off - info.supL, info.supR - off); tip = clamp(1 - edge / Math.max(6, p.w*0.5), 0, 1); }
+    let rot = clamp(p.rot || 0, -0.5, 0.5);
+    if(Math.abs(rot) < 0.05) rot = 0;               // near-level snaps flat
+    stack.push({ off, x: p.x, y: p.y, w: p.w, h: p.h, hue: p.hue, squish: 1.3, rot, tip });
     score += Math.max(1, Math.round(p.w/12));
     comboFlash = 12;
-    star(p.x, restY + camOffset);
+    star(p.x, p.y + camOffset);
     shake = Math.min(shake + 3, 10);
   }
 
@@ -361,34 +404,31 @@
 
       updateWombat();
 
-      // update falling plops
+      // update falling plops with simple box physics + real collisions
       for(let i=plops.length-1;i>=0;i--){
         const p = plops[i];
         p.vy += GRAV;
+        p.vx *= 0.99;
         p.x += p.vx; p.y += p.vy;
-        p.rot += p.vr;
+        p.rot = (p.rot||0) + (p.vr||0);
+        p.vr = (p.vr||0) * 0.92;
         p.squish += (1 - p.squish)*0.2;
 
-        // land on the highest surface under the poop's footprint (platform,
-        // a poop, or bridging several). Its CENTRE must be over the support —
-        // catching it hanging off an edge makes it slip off and tumble away.
-        if(!p.sliding){
-          const off = p.x - plat.x;
-          const info = supportInfo(off, p.w);
-          if(info && p.vy > 0 && p.y + p.h/2 >= info.surf){
-            if(off > info.supL + 2 && off < info.supR - 2){
-              placePoop(p, off, info.surf - p.h/2, info.supL, info.supR);
-              plops.splice(i,1);
-              continue;
-            } else {
-              // perched on an edge — slide off that side and fall past
-              p.sliding = true;
-              p.vx = (off <= (info.supL + info.supR)/2 ? -1 : 1) * (1.4 + Math.random()*0.8);
-              p.vr = (p.vr||0) + (p.vx > 0 ? 0.14 : -0.14);
-            }
-          }
+        // collide with the platform and stacked poops (bounce/deflect/tip)
+        const resting = collideFallingPoop(p);
+
+        // settle once it's resting quietly on support — may end up crooked
+        if(resting && Math.abs(p.vy) < 0.5 && Math.abs(p.vx) < 0.5 && Math.abs(p.vr||0) < 0.02){
+          p.settle = (p.settle||0) + 1;
+        } else {
+          p.settle = 0;
         }
-        // missed to floor (screen bottom, accounting for the camera)
+        if((p.settle||0) >= 6){
+          settlePoop(p);
+          plops.splice(i,1);
+          continue;
+        }
+        // fell past the bottom of the screen -> miss
         if(p.y + camOffset - p.h/2 > H){
           plops.splice(i,1);
           misses++;
@@ -865,7 +905,19 @@
     requestAnimationFrame(loop);
   }
   loop();
+  window.__dbg = () => ({state, level, danger: Math.round(danger*100)/100, height: stack.length, misses, plops: plops.length});
+  window.__step = (n=1) => { for(let i=0;i<n;i++){ update(); render(); } };
+  window.__start = () => { if(state!==STATE.PLAY) start(); };
+  window.__setPointer = (x) => { pointerX = x; };
+  window.__muteWombat = () => { nextSpawn = t + 1e9; };
+  window.__lowestPlopX = () => { if(!plops.length) return null; let lo=plops[0]; for(const p of plops) if(p.y>lo.y) lo=p; return Math.round(lo.x); };
+  window.__spawnAt = (x, size) => { plops.push({ x, y: wombat.y + 52 - camOffset, w: size, h: size, vx:0, vy:1.2, rot:0, vr:0, squish:1, hue:0, born:t }); };
+  window.__plops = () => plops.map(p=>({x:Math.round(p.x), y:Math.round(p.y), vx:Math.round(p.vx*100)/100, vr:Math.round((p.vr||0)*1000)/1000}));
+  window.__stack = () => stack.map(c=>({off:Math.round(c.off), y:Math.round(c.y), w:c.w, rot:Math.round((c.rot||0)*1000)/1000}));
+  window.__forceTopple = () => beginTopple(1);
 })();
 </script>
 </body>
 </html>
+
+<!-- autocommit test -->
