@@ -263,7 +263,7 @@
     const rContact = isFinite(rh) && Math.abs(rh - bottom) < 12;
     let rot = 0;
     if(lContact && rContact && Math.abs(rh - lh) > 12){
-      rot = clamp((rh - lh) / (p.w*0.6), -0.4, 0.4);
+      rot = clamp((rh - lh) / p.w, -0.3, 0.3);       // gentle slope, real bridges only
     }
     stack.push({ off, x: p.x, y: p.y, w: p.w, h: p.h, hue: p.hue, squish: 1.3, rot, tip });
     score += Math.max(1, Math.round(p.w/12));
