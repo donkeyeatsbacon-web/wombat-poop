@@ -928,7 +928,8 @@
     requestAnimationFrame(loop);
   }
   loop();
-  window.__dbg = () => ({state, level, height: stack.length, misses});
+  window.__dbg = () => ({state, level, height: stack.length, misses, plops: plops.length,
+    airborne: plops.filter(p=> p.y + camOffset < stackTopWorldY() + camOffset - 20).length});
   window.__step = (n=1) => { for(let i=0;i<n;i++){ update(); render(); } };
   window.__start = () => { if(state!==STATE.PLAY) start(); };
   window.__setPointer = (x) => { pointerX = x; };
