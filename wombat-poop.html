@@ -946,6 +946,20 @@
     }
     return { floaters: out, total: stack.length };
   };
+  window.__analyze = () => stack.map((c,i)=>{
+    const bottom = c.y + c.h/2;
+    let onPlatform = Math.abs(bottom - platTop()) < 5 && c.off > -plat.w/2 && c.off < plat.w/2;
+    let contactW = 0, centerSupported = onPlatform, supports = onPlatform?1:0;
+    if(onPlatform){ contactW = Math.min(c.off+c.w/2, plat.w/2) - Math.max(c.off-c.w/2, -plat.w/2); }
+    for(const d of stack){ if(d===c) continue;
+      if(Math.abs((d.y-d.h/2) - bottom) < 5){
+        const oL=Math.max(c.off-c.w/2, d.off-d.w/2), oR=Math.min(c.off+c.w/2, d.off+d.w/2);
+        if(oR-oL > 3){ supports++; contactW += (oR-oL); if(c.off > oL && c.off < oR) centerSupported=true; }
+      }
+    }
+    return { i, off:Math.round(c.off), y:Math.round(c.y), w:c.w, supports,
+      overhangRatio: Math.round((1 - contactW/c.w)*100)/100, centerSupported };
+  });
 })();
 </script>
 </body>
