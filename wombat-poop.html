@@ -422,20 +422,25 @@
         p.vr = (p.vr||0) * 0.92;
         p.squish += (1 - p.squish)*0.2;
 
-        // collide with the platform and stacked poops (bounce/deflect/tip)
+        // collide with the platform and stacked poops (rest on tops, stop on sides)
         const resting = collideFallingPoop(p);
 
-        // settle once it's resting quietly on support — may end up crooked
-        if(resting && Math.abs(p.vy) < 0.5 && Math.abs(p.vx) < 0.5 && Math.abs(p.vr||0) < 0.02){
-          p.settle = (p.settle||0) + 1;
-        } else {
-          p.settle = 0;
-        }
-        if((p.settle||0) >= 6){
-          settlePoop(p);
-          plops.splice(i,1);
-          continue;
-        }
+        // decide whether it can settle where it landed
+        if(resting && Math.abs(p.vy) < 0.6 && Math.abs(p.vx) < 0.6){
+          const off = p.x - plat.x;
+          const info = supportInfo(off, p.w);
+          if(info && off > info.supL + 2 && off < info.supR - 2){
+            // genuinely supported under its centre — let it settle (maybe crooked)
+            p.settle = (p.settle||0) + 1;
+            if(p.settle >= 5){ settlePoop(p); plops.splice(i,1); continue; }
+          } else if(info){
+            // perched on an edge — slide off toward the overhanging side and fall
+            const openRight = off > (info.supL + info.supR)/2;
+            p.x += openRight ? 1.3 : -1.3;
+            p.vx += openRight ? 0.35 : -0.35;
+            p.settle = 0;
+          } else { p.settle = 0; }
+        } else { p.settle = 0; }
         // fell past the bottom of the screen -> miss
         if(p.y + camOffset - p.h/2 > H){
           plops.splice(i,1);
