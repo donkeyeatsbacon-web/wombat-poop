@@ -285,21 +285,24 @@
     const comOff = pileCOMx - plat.x;                  // + = heavy to the right
     const instability = clamp(tipSum*0.12 + hFactor*0.28, 0, 2);
 
-    // the wobble: heavy side + nervous jitter push the lean over; the restoring
-    // spring weakens as the pile gets precarious, so bad stacks run away and fall
-    pileSwayV += comOff * 0.0017 * (0.6 + hFactor);
-    pileSwayV += Math.sin(t*0.11) * instability * 0.03;    // nervous sway (no phase jump on landing)
-    const restore = clamp(0.058 - instability*0.013, 0.016, 0.058);
+    // A pile is rock-solid while its mass sits in the safe middle of the
+    // platform; only the part of the imbalance that pushes toward the edge
+    // drives the lean over. So an off-centre-but-supported poop won't topple.
+    const safe = plat.w * 0.36;
+    const excess = Math.sign(comOff) * Math.max(0, Math.abs(comOff) - safe);
+    pileSwayV += excess * 0.004 * (0.6 + hFactor);
+    pileSwayV += Math.sin(t*0.11) * instability * 0.02;    // gentle nervous sway (visual life)
+    const restore = clamp(0.06 - instability*0.012, 0.02, 0.06);
     pileSwayV -= pileSway * restore;
-    pileSwayV *= 0.94;
+    pileSwayV *= 0.93;
     pileSway += pileSwayV;
     pileSwayShown += (pileSway - pileSwayShown) * 0.18;     // smooth, lagged value is what gets drawn
 
-    const leverage = pileSway * (55 + Math.min(pileH, 700) * 0.15);
+    const leverage = pileSway * (50 + Math.min(pileH, 700) * 0.14);
     const effOff = comOff + leverage;                  // where the leaning mass really is
-    const margin = plat.w/2 + 28;
-    danger += (clamp(Math.abs(effOff)/margin, 0, 1) - danger) * 0.2;
-    if(Math.abs(effOff) > margin) beginTopple(effOff > 0 ? 1 : -1);
+    const edge = plat.w/2 + 22;                        // topple once it clears the platform edge
+    danger += (clamp(Math.abs(effOff)/edge, 0, 1) - danger) * 0.2;
+    if(Math.abs(effOff) > edge) beginTopple(effOff > 0 ? 1 : -1);
   }
 
   function beginTopple(dir){
