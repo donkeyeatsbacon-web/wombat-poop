@@ -927,15 +927,6 @@
     requestAnimationFrame(loop);
   }
   loop();
-  window.__dbg = () => ({state, level, danger: Math.round(danger*100)/100, height: stack.length, misses});
-  window.__step = (n=1) => { for(let i=0;i<n;i++){ update(); render(); } };
-  window.__start = () => { if(state!==STATE.PLAY) start(); };
-  window.__setPointer = (x) => { pointerX = x; };
-  window.__muteWombat = () => { nextSpawn = t + 1e9; };
-  window.__lowestPlopX = () => { if(!plops.length) return null; let lo=plops[0]; for(const p of plops) if(p.y>lo.y) lo=p; return Math.round(lo.x); };
-  window.__spawnAt = (x, size) => { plops.push({ x, y: wombat.y + 52 - camOffset, w: size, h: size, vx:0, vy:1.2, rot:0, vr:0, squish:1, hue:0, born:t }); };
-  window.__stack = () => stack.map(c=>({off:Math.round(c.off), y:Math.round(c.y), w:c.w, rot:Math.round((c.rot||0)*1000)/1000}));
-  window.__forceTopple = () => beginTopple(1);
 })();
 </script>
 </body>
