@@ -254,11 +254,17 @@
     const info = supportInfo(off, p.w);
     let tip = 0.5;
     if(info){ const edge = Math.min(off - info.supL, info.supR - off); tip = clamp(1 - edge / Math.max(6, p.w*0.5), 0, 1); }
-    // crooked angle from the difference in support height under its two sides
-    const lh = supportHeightAt(p.x - p.w*0.32), rh = supportHeightAt(p.x + p.w*0.32);
+    // Settle level by default. Only sit crooked when BOTH sides are genuinely
+    // in contact with support at clearly different heights (a real wedge/bridge)
+    // — not when one sample just straddles the edge of the poop below.
+    const bottom = p.y + p.h/2;
+    const lh = supportHeightAt(p.x - p.w*0.3), rh = supportHeightAt(p.x + p.w*0.3);
+    const lContact = isFinite(lh) && Math.abs(lh - bottom) < 12;
+    const rContact = isFinite(rh) && Math.abs(rh - bottom) < 12;
     let rot = 0;
-    if(isFinite(lh) && isFinite(rh)) rot = clamp((rh - lh) / (p.w*0.64), -0.45, 0.45);
-    if(Math.abs(rot) < 0.05) rot = 0;               // near-level snaps flat
+    if(lContact && rContact && Math.abs(rh - lh) > 12){
+      rot = clamp((rh - lh) / (p.w*0.6), -0.4, 0.4);
+    }
     stack.push({ off, x: p.x, y: p.y, w: p.w, h: p.h, hue: p.hue, squish: 1.3, rot, tip });
     score += Math.max(1, Math.round(p.w/12));
     comboFlash = 12;
