@@ -886,7 +886,8 @@
     ctx.translate(0, camOffset);
     drawPlatform();
     drawStack();
-    for(const p of plops) drawPoop(p.x,p.y,p.w,p.h,p.rot,p.squish,p.hue,true);
+    // don't draw mid-air poops once the game is over (they'd hang frozen)
+    if(state !== STATE.OVER) for(const p of plops) drawPoop(p.x,p.y,p.w,p.h,p.rot,p.squish,p.hue,true);
     ctx.restore();
     // the wombat stays at the top of the screen as the poop source
     drawTopPlat();
