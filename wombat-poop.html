@@ -178,31 +178,6 @@
     return top;
   }
 
-  // Support under a footprint of width w centred at platform-offset `off`.
-  // Returns {surf, supL, supR}: the resting surface (highest = smallest y) and
-  // the horizontal span actually in contact at that height. null if unsupported.
-  function supportInfo(off, w){
-    const l = off - w/2, r = off + w/2;
-    let surf = null;
-    if(r > -plat.w/2 + 4 && l < plat.w/2 - 4) surf = platTop();
-    for(const c of stack){
-      const overlap = Math.min(r, c.off + c.w/2) - Math.max(l, c.off - c.w/2);
-      if(overlap > 6){ const ct = c.y - c.h/2; if(surf === null || ct < surf) surf = ct; }
-    }
-    if(surf === null) return null;
-    // horizontal span of contact at that surface height
-    let supL = Infinity, supR = -Infinity;
-    if(surf === platTop()){ supL = Math.max(l, -plat.w/2); supR = Math.min(r, plat.w/2); }
-    for(const c of stack){
-      if(Math.abs((c.y - c.h/2) - surf) <= 3){
-        const ol = Math.max(l, c.off - c.w/2), or = Math.min(r, c.off + c.w/2);
-        if(or - ol > 6){ supL = Math.min(supL, ol); supR = Math.max(supR, or); }
-      }
-    }
-    if(supL === Infinity) return null;
-    return { surf, supL, supR };
-  }
-
   // What a poop with the given bottom edge is ACTUALLY resting on: the span of
   // platform/poop tops that sit right at `bottom`. null if nothing is there
   // (so a poop perched on a sliver over air won't be treated as supported).
