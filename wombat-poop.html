@@ -203,6 +203,24 @@
     return { surf, supL, supR };
   }
 
+  // What a poop with the given bottom edge is ACTUALLY resting on: the span of
+  // platform/poop tops that sit right at `bottom`. null if nothing is there
+  // (so a poop perched on a sliver over air won't be treated as supported).
+  function restingSupport(off, w, bottom){
+    const l = off - w/2, r = off + w/2;
+    let supL = Infinity, supR = -Infinity, found = false;
+    if(Math.abs(platTop() - bottom) < 5 && r > -plat.w/2 && l < plat.w/2){
+      supL = Math.max(l, -plat.w/2); supR = Math.min(r, plat.w/2); found = true;
+    }
+    for(const c of stack){
+      if(Math.abs((c.y - c.h/2) - bottom) < 5){
+        const ol = Math.max(l, c.off - c.w/2), or = Math.min(r, c.off + c.w/2);
+        if(or - ol > 2){ supL = Math.min(supL, ol); supR = Math.max(supR, or); found = true; }
+      }
+    }
+    return found ? { supL, supR } : null;
+  }
+
   // Box-collide a falling poop against the platform and stacked poops: push it
   // out of any overlap (rest on tops, stop against sides) so it never passes
   // through anything. Returns true if it's resting on something from above.
