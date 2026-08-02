@@ -269,9 +269,9 @@
   // tilted to match uneven support so it can sit crooked between others.
   function settlePoop(p){
     const off = p.x - plat.x;
-    const info = supportInfo(off, p.w);
+    const sup = restingSupport(off, p.w, p.y + p.h/2);
     let tip = 0.5;
-    if(info){ const edge = Math.min(off - info.supL, info.supR - off); tip = clamp(1 - edge / Math.max(6, p.w*0.5), 0, 1); }
+    if(sup){ const edge = Math.min(off - sup.supL, sup.supR - off); tip = clamp(1 - edge / Math.max(6, p.w*0.5), 0, 1); }
     // Settle level by default. Only sit crooked when BOTH sides are genuinely
     // in contact with support at clearly different heights (a real wedge/bridge)
     // — not when one sample just straddles the edge of the poop below.
