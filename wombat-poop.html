@@ -455,23 +455,23 @@
         // decide whether it can settle where it landed
         if(resting && Math.abs(p.vy) < 0.6 && Math.abs(p.vx) < 0.6){
           const off = p.x - plat.x;
-          const info = supportInfo(off, p.w);
-          if(info){
+          const sup = restingSupport(off, p.w, p.y + p.h/2);  // what it's really on
+          if(sup){
             // how far the poop sticks out past its support on each side
-            const leftOver  = info.supL - (off - p.w/2);
-            const rightOver = (off + p.w/2) - info.supR;
+            const leftOver  = sup.supL - (off - p.w/2);
+            const rightOver = (off + p.w/2) - sup.supR;
             const maxOver = p.w * 0.33;                 // must sit mostly ON its support
             if(leftOver <= maxOver && rightOver <= maxOver){
               p.settle = (p.settle||0) + 1;
               if(p.settle >= 5){ settlePoop(p); plops.splice(i,1); continue; }
             } else {
-              // overhanging too far — topple off toward the overhanging side
+              // overhanging too far — slide off toward the overhanging side
               const openRight = rightOver > leftOver;
               p.x += openRight ? 1.3 : -1.3;
               p.vx += openRight ? 0.35 : -0.35;
               p.settle = 0;
             }
-          } else { p.settle = 0; }
+          } else { p.settle = 0; }   // perched on a sliver over air — keep falling
         } else { p.settle = 0; }
         // fell past the bottom of the screen -> miss
         if(p.y + camOffset - p.h/2 > H){
