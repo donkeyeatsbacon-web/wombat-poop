@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💩 Combat Wombat: Poop Stacker 💩</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #6ab04c;
+    font-family: "Comic Sans MS", "Chalkboard SE", "Comic Neue", cursive, sans-serif;
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    touch-action: none;
+  }
+  #wrap {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  canvas {
+    background: linear-gradient(#aee1ff 0%, #cdefff 55%, #b7e08a 55%, #7cc23f 100%);
+    box-shadow: 0 10px 40px rgba(0,0,0,.35);
+    border-radius: 12px;
+    max-width: 100%; max-height: 100%;
+    cursor: none;
+    image-rendering: optimizeQuality;
+  }
+  #hint {
+    position: absolute; bottom: 8px; left: 0; right: 0;
+    text-align: center; color: #2d5016; font-size: 14px;
+    text-shadow: 0 1px 0 rgba(255,255,255,.4);
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="game" width="720" height="960"></canvas></div>
+<div id="hint">← → or A/D or mouse/finger to move &nbsp;·&nbsp; P to pause &nbsp;·&nbsp; catch the plops, don't let the tower topple!</div>
+<script>
+(() => {
+  const cv = document.getElementById('game');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+
+  // ---------- Game state ----------
+  const STATE = { MENU: 0, PLAY: 1, TOPPLE: 2, OVER: 3 };
+  let state = STATE.MENU;
+  let score = 0, best = 0, misses = 0, maxMiss = 3;
+  let shake = 0, toppleTimer = 0;
+  let particles = [];
+  let plops = [];        // falling poop cubes
+  let stack = [];        // caught cubes resting on platform
+  let spawnTimer = 0, spawnGap = 90;
+  let t = 0;
+  let comboFlash = 0;
+  let danger = 0;   // 0 = rock solid, 1 = about to topple (wobble meter)
+  // camera / climbing mechanic
+  let camOffset = 0, camTarget = 0;      // vertical scroll applied to the tower
+  let level = 1, raising = false;
+  let pileCOMx = W/2;                     // horizontal centre of mass of the pile
+  let pileSway = 0, pileSwayV = 0;        // dynamic lean of the whole pile (the wobble)
+  let pileSwayShown = 0;                  // smoothed value used for drawing
+  const goalScreenY = Math.round(H/3);   // red goal line ~2/3 of the way up
+  const RAISE_BAND = 180;                 // how much of the pile stays visible after a raise
+
+  // ---------- Platform (player) ----------
+  const plat = {
+    w: 150, h: 26, x: W/2, y: H - 70,
+    vx: 0, targetX: W/2, speed: 9
+  };
+
+  // ---------- Wombat ----------
+  const wombat = {
+    x: W/2, y: 70, dir: 1, wob: 0, strain: 0, blink: 0, crawl: 0,
+    face: 0,          // -1 = facing left, +1 = facing right, 0 = facing forward
+    mode: 'crawl',    // crawl -> prep -> push -> recover
+    timer: 0
+  };
+
+  const GRAV = 0.16;   // gentle float — poop falls slowly
+  const keys = {};
+  let pointerX = null;
+
+  // top platform the wombat crawls along
+  const topPlat = { x: W/2, y: 132, w: W - 120, h: 22 };
+  let nextSpawn = 0;   // frame index of next poop (random intervals)
+
+  // ---------- Input ----------
+  window.addEventListener('keydown', e => {
+    keys[e.key.toLowerCase()] = true;
+    if (e.key === ' ' || ['arrowleft','arrowright','arrowup','arrowdown'].includes(e.key.toLowerCase())) e.preventDefault();
+    if (e.key.toLowerCase() === 'p' && state === STATE.PLAY) paused = !paused;
+    if ((state === STATE.MENU || state === STATE.OVER) && (e.key === ' ' || e.key === 'Enter')) start();
+  });
+  window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+  function canvasX(clientX){
+    const r = cv.getBoundingClientRect();
+    return (clientX - r.left) * (W / r.width);
+  }
+  cv.addEventListener('mousemove', e => pointerX = canvasX(e.clientX));
+  cv.addEventListener('mousedown', e => { pointerX = canvasX(e.clientX); if(state!==STATE.PLAY) start(); });
+  cv.addEventListener('touchstart', e => { pointerX = canvasX(e.touches[0].clientX); if(state!==STATE.PLAY) start(); e.preventDefault(); }, {passive:false});
+  cv.addEventListener('touchmove', e => { pointerX = canvasX(e.touches[0].clientX); e.preventDefault(); }, {passive:false});
+  cv.addEventListener('mouseleave', () => pointerX = null);
+
+  let paused = false;
+
+  // ---------- Helpers ----------
+  const rand = (a,b) => a + Math.random()*(b-a);
+  const clamp = (v,a,b) => v<a?a:v>b?b:v;
+
+  function reset(){
+    score = 0; misses = 0; shake = 0; toppleTimer = 0;
+    particles = []; plops = []; stack = [];
+    spawnTimer = 0; spawnGap = 95;
+    plat.x = W/2; plat.targetX = W/2; plat.vx = 0; plat.px = W/2;
+    wombat.x = W/2; wombat.y = topPlat.y - 62; wombat.strain = 0; wombat.crawl = 0;
+    wombat.face = 0; wombat.mode = 'crawl'; wombat.timer = 0; wombat.dir = 1;
+    nextSpawn = t + 70;
+    paused = false; comboFlash = 0; danger = 0;
+    camOffset = 0; camTarget = 0; level = 1; raising = false;
+    pileSway = 0; pileSwayV = 0; pileSwayShown = 0; pileCOMx = W/2;
+  }
+  function start(){ reset(); state = STATE.PLAY; }
+
+  // ---------- Spawning poop ----------
+  function spawnPlop(){
+    const size = rand(30, 78);
+    plops.push({
+      x: wombat.x,
+      y: wombat.y + 52 - camOffset,   // world y so it appears at the wombat on screen
+      w: size, h: size,
+      vx: rand(-0.3, 0.3),
+      vy: rand(0.2, 0.6),
+      rot: rand(-0.15, 0.15),
+      vr: rand(-0.05, 0.05),
+      squish: 1,
+      hue: rand(-8, 8),
+      born: t
+    });
+    wombat.strain = 1;   // peak scrunch at the moment of release
+    // little grunt puff from underneath
+    for(let i=0;i<6;i++){
+      particles.push(puff(wombat.x, wombat.y+40, '#9b6b3a'));
+    }
+  }
+
+  function puff(x,y,color){
+    return { x, y, vx: rand(-2,2), vy: rand(-3,-0.5), life: rand(18,34), max:34,
+             r: rand(3,8), color, kind:'puff' };
+  }
+  function splat(x,y){
+    for(let i=0;i<14;i++){
+      particles.push({ x, y, vx: rand(-5,5), vy: rand(-7,-1), life: rand(20,40), max:40,
+        r: rand(4,11), color:'#6f4a24', kind:'splat', g: .35 });
+    }
+  }
+  function star(x,y){
+    for(let i=0;i<10;i++){
+      const a = Math.random()*Math.PI*2, s = rand(2,6);
+      particles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s - 2, life: rand(20,36), max:36,
+        r: rand(3,7), color: ['#ffe14d','#ff9ff3','#7bed9f','#70a1ff'][i%4], kind:'star', g:.15 });
+    }
+  }
+
+  // ---------- Stacking (real 2D piling) ----------
+  // A poop rests on whatever is highest under its footprint — the platform,
+  // a single poop, or bridging across several. Positions are stored as an
+  // x-offset from the platform centre, so the whole pile rides the platform.
+  function platTop(){ return plat.y - plat.h/2; }
+
+  // world y of the highest point of the pile (before camera offset)
+  function stackTopWorldY(){
+    let top = platTop();
+    for(const c of stack){ const ct = c.y - c.h/2; if(ct < top) top = ct; }
+    return top;
+  }
+
+  // Support under a footprint of width w centred at platform-offset `off`.
+  // Returns {surf, supL, supR}: the resting surface (highest = smallest y) and
+  // the horizontal span actually in contact at that height. null if unsupported.
+  function supportInfo(off, w){
+    const l = off - w/2, r = off + w/2;
+    let surf = null;
+    if(r > -plat.w/2 + 4 && l < plat.w/2 - 4) surf = platTop();
+    for(const c of stack){
+      const overlap = Math.min(r, c.off + c.w/2) - Math.max(l, c.off - c.w/2);
+      if(overlap > 6){ const ct = c.y - c.h/2; if(surf === null || ct < surf) surf = ct; }
+    }
+    if(surf === null) return null;
+    // horizontal span of contact at that surface height
+    let supL = Infinity, supR = -Infinity;
+    if(surf === platTop()){ supL = Math.max(l, -plat.w/2); supR = Math.min(r, plat.w/2); }
+    for(const c of stack){
+      if(Math.abs((c.y - c.h/2) - surf) <= 3){
+        const ol = Math.max(l, c.off - c.w/2), or = Math.min(r, c.off + c.w/2);
+        if(or - ol > 6){ supL = Math.min(supL, ol); supR = Math.max(supR, or); }
+      }
+    }
+    if(supL === Infinity) return null;
+    return { surf, supL, supR };
+  }
+
+  function placePoop(p, off, restY, supL, supR){
+    // how centred it is on its support — near an edge is precarious (high tip)
+    const edge = Math.min(off - supL, supR - off);
+    const tip = clamp(1 - edge / Math.max(6, p.w*0.5), 0, 1);
+    stack.push({ off, x: plat.x + off, y: restY, w: p.w, h: p.h,
+                 hue: p.hue, squish: 1.4, rot: 0, tip });
+    score += Math.max(1, Math.round(p.w/12));
+    comboFlash = 12;
+    star(p.x, restY + camOffset);
+    shake = Math.min(shake + 3, 10);
+  }
+
+  function updateStack(){
+    for(const c of stack){ c.squish += (1 - c.squish) * 0.18; c.x = plat.x + c.off; }
+    if(!stack.length){
+      danger += (0 - danger) * 0.2; pileCOMx = plat.x;
+      pileSway *= 0.8; pileSwayV *= 0.8; pileSwayShown *= 0.8; return;
+    }
+    // centre of mass, height, and how precarious the pile is overall
+    let m=0, mx=0, topY=platTop(), tipSum=0;
+    for(const c of stack){
+      const w = c.w*c.h; m += w; mx += w*(plat.x + c.off);
+      if(c.y - c.h/2 < topY) topY = c.y - c.h/2;
+      tipSum += (c.tip||0);
+    }
+    pileCOMx = mx/m;
+    const pileH = platTop() - topY;
+    const hFactor = clamp(pileH/500, 0, 1.3);          // capped so high levels stay playable
+    const comOff = pileCOMx - plat.x;                  // + = heavy to the right
+    const instability = clamp(tipSum*0.12 + hFactor*0.28, 0, 2);
+
+    // the wobble: heavy side + nervous jitter push the lean over; the restoring
+    // spring weakens as the pile gets precarious, so bad stacks run away and fall
+    pileSwayV += comOff * 0.0017 * (0.6 + hFactor);
+    pileSwayV += Math.sin(t*0.11) * instability * 0.03;    // nervous sway (no phase jump on landing)
+    const restore = clamp(0.058 - instability*0.013, 0.016, 0.058);
+    pileSwayV -= pileSway * restore;
+    pileSwayV *= 0.94;
+    pileSway += pileSwayV;
+    pileSwayShown += (pileSway - pileSwayShown) * 0.18;     // smooth, lagged value is what gets drawn
+
+    const leverage = pileSway * (55 + Math.min(pileH, 700) * 0.15);
+    const effOff = comOff + leverage;                  // where the leaning mass really is
+    const margin = plat.w/2 + 28;
+    danger += (clamp(Math.abs(effOff)/margin, 0, 1) - danger) * 0.2;
+    if(Math.abs(effOff) > margin) beginTopple(effOff > 0 ? 1 : -1);
+  }
+
+  function beginTopple(dir){
+    state = STATE.TOPPLE;
+    toppleTimer = 0;
+    for(const c of stack){
+      c.x = plat.x + c.off;           // freeze current world x, then fall straight
+      c.vx = rand(-0.5, 0.5);         // tiny symmetric scatter, never a sideways launch
+      c.vfall = rand(0, 1.2);
+      c.spin = rand(-0.14, 0.14);
+    }
+    // the poop still in the air keeps tumbling down too
+    for(const p of plops){
+      p.vx = rand(-0.5, 0.5);
+      p.vy = Math.max(p.vy||0, 0.5);
+      p.vr = (p.vr||0) + rand(-0.14, 0.14);
+    }
+    shake = 16;
+  }
+
+  function updateTopple(){
+    toppleTimer++;
+    danger = 1;
+    let allGone = true;   // everything has fallen past the bottom of the screen
+    for(const c of stack){
+      c.vfall = (c.vfall||0) + 0.55;
+      c.y += c.vfall; c.x += (c.vx||0);
+      c.rot = (c.rot||0) + (c.spin||0);
+      if(c.y + camOffset - c.h/2 <= H) allGone = false;
+    }
+    for(const p of plops){
+      p.vy = (p.vy||0) + GRAV*3;
+      p.y += p.vy; p.x += (p.vx||0);
+      p.rot += (p.vr||0);
+      if(p.y + camOffset - p.h/2 <= H) allGone = false;
+    }
+    if(toppleTimer > 240 || allGone){
+      state = STATE.OVER;
+      best = Math.max(best, score);
+    }
+  }
+
+  // ---------- Wombat behaviour ----------
+  // crawl (facing the way it walks) -> prep (turn to face us) ->
+  // push (scrunch up and force one out) -> recover -> crawl again
+  function updateWombat(){
+    if(wombat.blink>0) wombat.blink--;
+
+    if(wombat.mode === 'crawl'){
+      wombat.crawl += 0.18;
+      wombat.wob = Math.sin(wombat.crawl) * 4;
+      wombat.x += wombat.dir * 1.6;
+      const bound = topPlat.w/2 - 40;
+      if(wombat.x < W/2 - bound){ wombat.x = W/2 - bound; wombat.dir = 1; }
+      if(wombat.x > W/2 + bound){ wombat.x = W/2 + bound; wombat.dir = -1; }
+      if(Math.random() < 0.008) wombat.dir *= -1;
+      // face the way it's walking (turn to the side)
+      wombat.face += (wombat.dir - wombat.face) * 0.12;
+      wombat.strain += (0 - wombat.strain) * 0.1;
+      if(Math.random() < 0.01) wombat.blink = 8;
+      if(t >= nextSpawn){ wombat.mode = 'prep'; wombat.timer = 0; }
+
+    } else if(wombat.mode === 'prep'){
+      // stop, settle, and turn to face forward before pooping
+      wombat.wob *= 0.9;
+      wombat.face += (0 - wombat.face) * 0.2;      // rotate to face us
+      wombat.strain += (0.18 - wombat.strain) * 0.12; // small anticipation
+      wombat.timer++;
+      if((Math.abs(wombat.face) < 0.08 && wombat.timer > 14) || wombat.timer > 70){
+        wombat.mode = 'push'; wombat.timer = 0;
+      }
+
+    } else if(wombat.mode === 'push'){
+      wombat.face += (0 - wombat.face) * 0.3;       // stay squarely forward
+      wombat.wob = 0;
+      wombat.timer++;
+      wombat.strain = Math.min(1, wombat.strain + 0.07); // scrunch harder
+      if(wombat.timer === 24) spawnPlop();          // ...and out it comes
+      if(wombat.timer > 34){ wombat.mode = 'recover'; wombat.timer = 0; }
+
+    } else { // recover
+      wombat.timer++;
+      wombat.strain += (0 - wombat.strain) * 0.14;  // relief
+      if(wombat.timer > 16){
+        wombat.mode = 'crawl';
+        const base = clamp(150 - score*0.6, 70, 150);
+        nextSpawn = t + base + rand(-25, 55);
+      }
+    }
+  }
+
+  // ---------- Update ----------
+  function update(){
+    t++;
+    if(shake > 0) shake *= 0.85;
+    if(comboFlash>0) comboFlash--;
+
+    if(state === STATE.PLAY && !paused){
+      // player movement
+      let dir = 0;
+      if(keys['arrowleft']||keys['a']) dir -= 1;
+      if(keys['arrowright']||keys['d']) dir += 1;
+      if(dir !== 0){
+        plat.x += dir * plat.speed;
+        pointerX = null;
+      } else if(pointerX !== null){
+        plat.x += (pointerX - plat.x) * 0.35;
+      }
+      plat.x = clamp(plat.x, plat.w/2, W - plat.w/2);
+
+      updateWombat();
+
+      // update falling plops
+      for(let i=plops.length-1;i>=0;i--){
+        const p = plops[i];
+        p.vy += GRAV;
+        p.x += p.vx; p.y += p.vy;
+        p.rot += p.vr;
+        p.squish += (1 - p.squish)*0.2;
+
+        // land on the highest surface under the poop's footprint (platform,
+        // a poop, or bridging several). Its CENTRE must be over the support —
+        // catching it hanging off an edge makes it slip off and tumble away.
+        if(!p.sliding){
+          const off = p.x - plat.x;
+          const info = supportInfo(off, p.w);
+          if(info && p.vy > 0 && p.y + p.h/2 >= info.surf){
+            if(off > info.supL + 2 && off < info.supR - 2){
+              placePoop(p, off, info.surf - p.h/2, info.supL, info.supR);
+              plops.splice(i,1);
+              continue;
+            } else {
+              // perched on an edge — slide off that side and fall past
+              p.sliding = true;
+              p.vx = (off <= (info.supL + info.supR)/2 ? -1 : 1) * (1.4 + Math.random()*0.8);
+              p.vr = (p.vr||0) + (p.vx > 0 ? 0.14 : -0.14);
+            }
+          }
+        }
+        // missed to floor (screen bottom, accounting for the camera)
+        if(p.y + camOffset - p.h/2 > H){
+          plops.splice(i,1);
+          misses++;
+          splat(p.x, H-6);
+          shake = Math.min(shake+6, 14);
+          if(misses >= maxMiss){
+            state = STATE.OVER; best = Math.max(best,score);
+          }
+          continue;
+        }
+      }
+      updateStack();
+
+      // climbing: when the stack top reaches the red goal line, raise the
+      // view so only the top 3 poops remain, and keep climbing to a new line
+      if(!raising && stack.length){
+        const stackTopScreen = stackTopWorldY() + camOffset;
+        if(stackTopScreen <= goalScreenY){
+          raising = true; level++;
+          // leave only the top band of the pile visible near the bottom
+          camTarget = (H - RAISE_BAND) - stackTopWorldY();
+        }
+      }
+      camOffset += (camTarget - camOffset) * 0.035;   // gentle, slower pan
+      if(raising && Math.abs(camTarget - camOffset) < 1.0) raising = false;
+    }
+
+    if(state === STATE.TOPPLE) updateTopple();
+
+    // particles
+    for(let i=particles.length-1;i>=0;i--){
+      const pt = particles[i];
+      pt.x += pt.vx; pt.y += pt.vy;
+      if(pt.g) pt.vy += pt.g;
+      pt.vx *= 0.98;
+      pt.life--;
+      if(pt.life<=0) particles.splice(i,1);
+    }
+  }
+
+  // ---------- Drawing ----------
+  function roundRect(x,y,w,h,r){
+    r = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function drawPoop(x,y,w,h,rot,squish,hue,eyes){
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(rot||0);
+    const sx = 1/ (squish||1) , sy = squish||1;
+    ctx.scale(sx*0.5+0.5>0?1: 1,1);
+    const bw = w, bh = h*(squish||1);
+    // body
+    const base = `hsl(${28+hue}, 55%,`;
+    const g = ctx.createLinearGradient(0,-bh/2,0,bh/2);
+    g.addColorStop(0, `${base} 42%)`);
+    g.addColorStop(1, `${base} 28%)`);
+    ctx.fillStyle = g;
+    roundRect(-bw/2, -bh/2, bw, bh, Math.min(bw,bh)*0.28);
+    ctx.fill();
+    // shine
+    ctx.fillStyle = 'rgba(255,255,255,.22)';
+    roundRect(-bw/2+bw*0.14, -bh/2+bh*0.12, bw*0.34, bh*0.2, 6);
+    ctx.fill();
+    // a couple of darker lumps for texture (no face)
+    ctx.fillStyle = 'rgba(0,0,0,.10)';
+    ctx.beginPath(); ctx.arc(bw*0.16, bh*0.12, bw*0.12, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(-bw*0.2, bh*0.02, bw*0.08, 0, 7); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawWombat(){
+    const push = wombat.strain;                 // 0..1 pushing effort
+    const turn = clamp(wombat.face, -1, 1);      // -1 left .. +1 right
+    const tt   = Math.abs(turn);
+    const s    = turn < 0 ? -1 : 1;              // facing side
+    const blink = wombat.blink > 0;
+
+    ctx.save();
+    ctx.translate(wombat.x, wombat.y + wombat.wob*0.2);
+    // scrunch: shake, squash down and widen when forcing one out
+    const shakeX = push > 0.35 ? Math.sin(t*1.1) * (push-0.35) * 6 : 0;
+    ctx.translate(shakeX, push*4);
+    ctx.scale(1 + push*0.07, 1 + push*0.14);
+
+    const bw = 140 * (1 - tt*0.10);              // body narrows a touch when turned
+    const step = Math.sin(wombat.crawl) * (wombat.mode==='crawl' ? 8 : 0);
+
+    // feet (behind body)
+    ctx.fillStyle='#6b4f3a';
+    ctx.beginPath();
+    ctx.arc(-30 + step, 52 - Math.max(0,step)*0.4, 14, 0, 7);
+    ctx.arc(30 - step, 52 - Math.max(0,-step)*0.4, 14, 0, 7); ctx.fill();
+    // trailing front paw reaching when crawling
+    if(wombat.mode==='crawl'){
+      ctx.fillStyle='#7a5c44';
+      ctx.beginPath(); ctx.arc(-52*s + step*0.5, 30, 11, 0, 7); ctx.fill();
+    }
+
+    // body
+    ctx.fillStyle='#8a6a4f';
+    roundRect(-bw/2,-52,bw,104,44); ctx.fill();
+    // belly (drifts toward the side it's facing)
+    ctx.fillStyle='#a88465';
+    roundRect(-46 + turn*12, -20, 92*(1-tt*0.12), 66, 34); ctx.fill();
+
+    // ears — far ear tucks smaller behind the head
+    const earNearX =  48*s, earFarX = -30*s;
+    const farScale = 1 - tt*0.55;
+    ctx.fillStyle='#7a5c44';
+    ctx.beginPath(); ctx.arc(earFarX,-50,20*farScale,0,7); ctx.fill();
+    ctx.fillStyle='#c39b7d';
+    ctx.beginPath(); ctx.arc(earFarX,-50,10*farScale,0,7); ctx.fill();
+    ctx.fillStyle='#7a5c44';
+    ctx.beginPath(); ctx.arc(earNearX,-50,20,0,7); ctx.fill();
+    ctx.fillStyle='#c39b7d';
+    ctx.beginPath(); ctx.arc(earNearX,-50,10,0,7); ctx.fill();
+
+    // combat headband + knot + trailing tails
+    ctx.fillStyle='#3d6b2e';
+    roundRect(-72,-46,144,16,8); ctx.fill();
+    ctx.fillStyle='#e74c3c';
+    ctx.beginPath(); ctx.arc(turn*10,-38,7,0,7); ctx.fill();
+    ctx.strokeStyle='#3d6b2e'; ctx.lineWidth=8; ctx.lineCap='round';
+    const tailX = -66*s;
+    ctx.beginPath(); ctx.moveTo(tailX,-40); ctx.lineTo(tailX - 30*s, -24 + Math.sin(t*0.2)*6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tailX,-36); ctx.lineTo(tailX - 26*s, -6 + Math.cos(t*0.2)*6); ctx.stroke();
+
+    // snout pokes out toward the facing side when turned
+    if(tt > 0.15){
+      ctx.fillStyle='#8a6a4f';
+      ctx.beginPath(); ctx.ellipse(s*(bw/2 - 4), 4, 10*tt+8, 15, 0, 0, 7); ctx.fill();
+      ctx.fillStyle='#4a3220';
+      ctx.beginPath(); ctx.ellipse(s*(bw/2 + 6*tt), 0, 6, 5, 0, 0, 7); ctx.fill();
+    }
+
+    // eye layout: both shift toward the turn, trailing eye shrinks
+    const eyeCX = turn*16;
+    const sep = 26 * (1 - tt*0.32);
+    const eyeLX = eyeCX - sep, eyeRX = eyeCX + sep;
+    const lScale = turn > 0 ? 1 - tt*0.5 : 1;    // facing right => left eye trails
+    const rScale = turn < 0 ? 1 - tt*0.5 : 1;
+
+    // brows dig in when pushing
+    if(push > 0.35){
+      ctx.strokeStyle='#4a3220'; ctx.lineWidth=5; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(eyeLX-11,-30); ctx.lineTo(eyeLX+7,-23); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(eyeRX+11,-30); ctx.lineTo(eyeRX-7,-23); ctx.stroke();
+    }
+
+    // eyes — squeezed shut when pushing hard or blinking, else open
+    const drawEye = (ex, sc) => {
+      if(sc <= 0.02) return;
+      if(blink || push > 0.55){
+        ctx.strokeStyle='#222'; ctx.lineWidth=3.2*sc; ctx.lineCap='round';
+        ctx.beginPath();
+        ctx.moveTo(ex-9*sc,-17); ctx.lineTo(ex, -12); ctx.lineTo(ex+9*sc,-17); // >< pinch
+        ctx.stroke();
+      } else {
+        ctx.fillStyle='#fff';
+        ctx.beginPath(); ctx.arc(ex,-14,12*sc,0,7); ctx.fill();
+        ctx.fillStyle='#222';
+        ctx.beginPath(); ctx.arc(ex + turn*3, -14 + (push>0.3?3:0), 6*sc,0,7); ctx.fill();
+      }
+    };
+    drawEye(eyeLX, lScale);
+    drawEye(eyeRX, rScale);
+
+    // effort blush on the cheeks
+    if(push > 0.4){
+      ctx.fillStyle = `rgba(230,90,70,${(push-0.4)*0.8})`;
+      ctx.beginPath(); ctx.arc(eyeLX-3, 4, 9, 0, 7); ctx.arc(eyeRX+3, 4, 9, 0, 7); ctx.fill();
+    }
+
+    // nose (only when facing forward; the snout carries it when turned)
+    if(tt < 0.5){
+      ctx.globalAlpha = 1 - tt*2 < 0 ? 0 : 1 - tt*2;
+      ctx.fillStyle='#4a3220';
+      roundRect(-10 + turn*8, -4, 20, 14, 6); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    // mouth
+    ctx.lineCap='round';
+    if(push > 0.5){
+      // strained, gritted grimace
+      ctx.fillStyle='#5a3a24';
+      ctx.beginPath(); ctx.ellipse(turn*6, 17, 9, 6 + push*4, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle='#fff'; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.moveTo(turn*6-7, 15); ctx.lineTo(turn*6+7, 15); ctx.stroke();
+    } else {
+      ctx.strokeStyle='#4a3220'; ctx.lineWidth=4;
+      ctx.beginPath(); ctx.arc(turn*6, 10, 12, 0.15*Math.PI, 0.85*Math.PI); ctx.stroke();
+    }
+
+    // sweat bead when really straining
+    if(push > 0.6){
+      ctx.fillStyle='#7fd7ff';
+      const sy = -32 + ((t*1.2) % 26)/26 * 12;
+      ctx.beginPath(); ctx.arc(eyeRX + 20, sy, 5, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+
+    // effort marks floating around the head
+    if(push > 0.45){
+      ctx.fillStyle='#e74c3c';
+      ctx.font='bold 34px "Comic Sans MS", cursive';
+      ctx.fillText('!', wombat.x+84, wombat.y-30 - push*6);
+      ctx.fillText('💨', wombat.x-124, wombat.y+30);
+    }
+  }
+
+  function drawPlatform(){
+    ctx.save();
+    ctx.translate(plat.x, plat.y);
+    // pole
+    ctx.fillStyle='#7a5230';
+    ctx.fillRect(-8, plat.h/2, 16, H);
+    // board
+    const g = ctx.createLinearGradient(0,-plat.h/2,0,plat.h/2);
+    g.addColorStop(0,'#c98b4a'); g.addColorStop(1,'#9c6531');
+    ctx.fillStyle = g;
+    roundRect(-plat.w/2,-plat.h/2,plat.w,plat.h,10); ctx.fill();
+    ctx.strokeStyle='#6f451f'; ctx.lineWidth=3; ctx.stroke();
+    // plank grain
+    ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=2;
+    for(let gx=-plat.w/2+22; gx<plat.w/2; gx+=44){
+      ctx.beginPath(); ctx.moveTo(gx,-plat.h/2+3); ctx.lineTo(gx,plat.h/2-3); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawTopPlat(){
+    ctx.save();
+    ctx.translate(topPlat.x, topPlat.y);
+    // support posts
+    ctx.fillStyle = '#6f451f';
+    ctx.fillRect(-topPlat.w/2+10, topPlat.h/2, 14, 40);
+    ctx.fillRect(topPlat.w/2-24, topPlat.h/2, 14, 40);
+    // plank
+    const g = ctx.createLinearGradient(0,-topPlat.h/2,0,topPlat.h/2);
+    g.addColorStop(0,'#c98b4a'); g.addColorStop(1,'#9c6531');
+    ctx.fillStyle = g;
+    roundRect(-topPlat.w/2,-topPlat.h/2,topPlat.w,topPlat.h,8); ctx.fill();
+    ctx.strokeStyle='#6f451f'; ctx.lineWidth=3; ctx.stroke();
+    // plank lines
+    ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=2;
+    for(let x=-topPlat.w/2+40; x<topPlat.w/2; x+=70){
+      ctx.beginPath(); ctx.moveTo(x,-topPlat.h/2+2); ctx.lineTo(x,topPlat.h/2-2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawStack(){
+    const toppling = state === STATE.TOPPLE || state === STATE.OVER;
+    const lean = clamp(pileSwayShown, -0.5, 0.5);
+    for(const c of stack){
+      // wobble as a horizontal lean that grows with height above the platform,
+      // so poops resting on the platform stay perfectly level and stuck
+      let dx = 0;
+      if(!toppling){
+        const above = Math.max(0, platTop() - (c.y + c.h/2));  // height of its underside
+        dx = lean * above * 0.5;
+      }
+      drawPoop(c.x + dx, c.y, c.w, c.h, (c.rot||0), c.squish, c.hue, false);
+    }
+  }
+
+  function drawParticles(){
+    for(const p of particles){
+      ctx.globalAlpha = Math.max(0, p.life/p.max);
+      if(p.kind==='star'){
+        drawStar(p.x,p.y,p.r,p.color);
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawStar(x,y,r,color){
+    ctx.save(); ctx.translate(x,y); ctx.rotate(t*0.1);
+    ctx.fillStyle=color; ctx.beginPath();
+    for(let i=0;i<5;i++){
+      ctx.lineTo(Math.cos((i*4*Math.PI)/5 - Math.PI/2)*r, Math.sin((i*4*Math.PI)/5 - Math.PI/2)*r);
+    }
+    ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+
+  function drawClouds(){
+    ctx.fillStyle='rgba(255,255,255,.75)';
+    for(let i=0;i<3;i++){
+      const cx = ((t*0.3 + i*260) % (W+200)) - 100;
+      const cy = 60 + i*40;
+      cloud(cx,cy, 34+i*6);
+    }
+  }
+  function cloud(x,y,r){
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,7); ctx.arc(x+r,y+6,r*0.8,0,7);
+    ctx.arc(x-r,y+8,r*0.7,0,7); ctx.arc(x+r*0.4,y-r*0.6,r*0.7,0,7);
+    ctx.fill();
+  }
+
+  function drawHUD(){
+    ctx.save();
+    ctx.textAlign='left';
+    ctx.fillStyle='#2d5016';
+    ctx.font='bold 40px "Comic Sans MS", cursive';
+    ctx.fillText('💩 ' + score, 22, 52);
+    // misses
+    ctx.textAlign='right';
+    ctx.font='30px "Comic Sans MS", cursive';
+    let hearts='';
+    for(let i=0;i<maxMiss;i++) hearts += i<maxMiss-misses ? '🧻' : '❌';
+    ctx.fillText(hearts, W-22, 48);
+    ctx.textAlign='left';
+    ctx.font='20px "Comic Sans MS", cursive';
+    ctx.fillStyle='#3a6b1f';
+    ctx.fillText('height: ' + stack.length, 22, 82);
+    // level (climbs each time you reach the goal line)
+    ctx.textAlign='right';
+    ctx.font='bold 22px "Comic Sans MS", cursive';
+    ctx.fillStyle='#2d5016';
+    ctx.fillText('🏔 Lv ' + level, W-22, 80);
+    ctx.textAlign='left';
+    ctx.restore();
+    if(state === STATE.PLAY || state === STATE.TOPPLE) drawWobbleMeter();
+  }
+
+  function drawWobbleMeter(){
+    const x = 22, y = 106, w = 200, h = 20;
+    const d = clamp(danger, 0, 1);
+    const shiver = d > 0.55 ? Math.sin(t*0.7) * d * 2.5 : 0;
+    ctx.save();
+    // label
+    ctx.textAlign='left';
+    ctx.font='bold 13px "Comic Sans MS", cursive';
+    ctx.fillStyle='#2d5016';
+    ctx.fillText('🌀 WOBBLE-O-METER', x, y - 5);
+    // track
+    ctx.fillStyle='rgba(255,255,255,.6)';
+    roundRect(x, y, w, h, h/2); ctx.fill();
+    ctx.strokeStyle='#2d5016'; ctx.lineWidth=2; roundRect(x, y, w, h, h/2); ctx.stroke();
+    // fill (green → yellow → red), shivering when high
+    const fw = Math.max(h, d * w);
+    const hue = (1 - d) * 115;
+    ctx.save();
+    roundRect(x, y, w, h, h/2); ctx.clip();
+    ctx.fillStyle = `hsl(${hue}, 82%, 47%)`;
+    roundRect(x + shiver, y, fw, h, h/2); ctx.fill();
+    // little tick marks
+    ctx.strokeStyle='rgba(0,0,0,.15)'; ctx.lineWidth=1;
+    for(let i=1;i<5;i++){ ctx.beginPath(); ctx.moveTo(x+w*i/5,y); ctx.lineTo(x+w*i/5,y+h); ctx.stroke(); }
+    ctx.restore();
+    // face indicator that rides the bar
+    const face = d < 0.5 ? '🙂' : d < 0.8 ? '😬' : '😱';
+    ctx.font = '18px serif';
+    ctx.textAlign='center';
+    ctx.fillText(face, clamp(x + fw, x + 12, x + w - 4), y + h/2 + 6 + shiver);
+    // danger warning
+    if(d > 0.8 && Math.sin(t*0.4) > 0){
+      ctx.textAlign='left';
+      ctx.font='bold 15px "Comic Sans MS", cursive';
+      ctx.fillStyle='#e11d1d';
+      ctx.fillText('⚠ TIPPY!!', x + w + 10, y + h - 3);
+    }
+    ctx.restore();
+  }
+
+  function drawGoalLine(){
+    if(state !== STATE.PLAY && state !== STATE.TOPPLE) return;
+    const y = goalScreenY;
+    ctx.save();
+    // pulsing red dashed line
+    ctx.setLineDash([20,14]);
+    ctx.lineDashOffset = -(t*0.6 % 34);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#e23b2e';
+    ctx.globalAlpha = 0.78 + Math.sin(t*0.14)*0.22;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    // label
+    ctx.fillStyle = '#e23b2e';
+    ctx.font = 'bold 19px "Comic Sans MS", cursive';
+    ctx.textAlign = 'right';
+    ctx.fillText('🎯 GOAL', W - 14, y - 9);
+    ctx.textAlign = 'left';
+    ctx.restore();
+  }
+
+  function centerText(lines){
+    ctx.save();
+    ctx.fillStyle='rgba(0,0,0,.35)';
+    ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center';
+    let y = H*0.32;
+    for(const l of lines){
+      ctx.font = l.font;
+      ctx.fillStyle = l.color || '#fff';
+      ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(0,0,0,.5)';
+      if(l.stroke) ctx.strokeText(l.text, W/2, y);
+      ctx.fillText(l.text, W/2, y);
+      y += l.gap || 60;
+    }
+    ctx.restore();
+  }
+
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    ctx.save();
+    const sx = (Math.random()-0.5)*shake, sy=(Math.random()-0.5)*shake;
+    ctx.translate(sx,sy);
+
+    drawClouds();
+    // ground detail
+    ctx.fillStyle='#5aa72f';
+    for(let i=0;i<20;i++){
+      const gx = (i*40 + (t*0.2)%40);
+      ctx.beginPath();
+      ctx.moveTo(gx, H); ctx.lineTo(gx+6, H-18); ctx.lineTo(gx+12,H); ctx.fill();
+    }
+
+    // the tower, catch platform and falling poops scroll with the camera
+    ctx.save();
+    ctx.translate(0, camOffset);
+    drawPlatform();
+    drawStack();
+    for(const p of plops) drawPoop(p.x,p.y,p.w,p.h,p.rot,p.squish,p.hue,true);
+    ctx.restore();
+    // the wombat stays at the top of the screen as the poop source
+    drawTopPlat();
+    drawWombat();
+    drawParticles();
+    drawGoalLine();
+    drawHUD();
+
+    ctx.restore();
+
+    if(state === STATE.MENU){
+      centerText([
+        {text:'💩 COMBAT WOMBAT 💩', font:'bold 52px "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:56},
+        {text:'POOP STACKER', font:'bold 40px "Comic Sans MS", cursive', color:'#ffe14d', stroke:true, gap:80},
+        {text:'Catch the plops. Stack \'em high.', font:'24px "Comic Sans MS", cursive', gap:38},
+        {text:'Don\'t let the tower topple!', font:'24px "Comic Sans MS", cursive', gap:80},
+        {text:'▶ Click / Tap / Space to start', font:'bold 28px "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
+      ]);
+    }
+    if(state === STATE.OVER){
+      centerText([
+        {text: misses>=maxMiss ? '🧻 Out of toilet paper!' : '🗼 TIMBERRR!', font:'bold 46px "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:70},
+        {text:'Score: ' + score, font:'bold 40px "Comic Sans MS", cursive', color:'#ffe14d', stroke:true, gap:46},
+        {text:'Best: ' + Math.max(best,score), font:'26px "Comic Sans MS", cursive', gap:36},
+        {text:'Reached level ' + level + ' · ' + stack.length + ' plops', font:'22px "Comic Sans MS", cursive', gap:80},
+        {text:'▶ Click / Space to poop again', font:'bold 26px "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
+      ]);
+    }
+    if(paused && state===STATE.PLAY){
+      centerText([{text:'⏸ Paused', font:'bold 48px "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:40},
+                  {text:'press P to resume', font:'22px "Comic Sans MS", cursive'}]);
+    }
+  }
+
+  function loop(){
+    update();
+    render();
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+</script>
+</body>
+</html>
