@@ -122,6 +122,7 @@
     nextSpawn = t + 70;
     paused = false; comboFlash = 0; danger = 0;
     camOffset = 0; camTarget = 0; level = 1; raising = false;
+    raiseBaseY = platTop();
     pileSway = 0; pileSwayV = 0; pileSwayShown = 0; pileCOMx = W/2;
   }
   function start(){ reset(); state = STATE.PLAY; }
