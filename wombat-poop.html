@@ -58,6 +58,7 @@
   // camera / climbing mechanic
   let camOffset = 0, camTarget = 0;      // vertical scroll applied to the tower
   let level = 1, raising = false;
+  let raiseBaseY = 0;                     // pile-top world y at the last raise (wobble measured from here)
   let pileCOMx = W/2;                     // horizontal centre of mass of the pile
   let pileSway = 0, pileSwayV = 0;        // dynamic lean of the whole pile (the wobble)
   let pileSwayShown = 0;                  // smoothed value used for drawing
