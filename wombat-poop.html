@@ -949,6 +949,13 @@
     requestAnimationFrame(loop);
   }
   loop();
+  window.__dbg = () => ({state, level, danger: Math.round(danger*1000)/1000,
+    activeH: Math.round(Math.max(0, raiseBaseY - stackTopWorldY())), height: stack.length,
+    camOffset: Math.round(camOffset), jumpTimer, raiseDelay, hop: Math.round(topHop())});
+  window.__step = (n=1) => { for(let i=0;i<n;i++){ update(); render(); } };
+  window.__start = () => { if(state!==STATE.PLAY) start(); };
+  window.__setPointer = (x) => { pointerX = x; };
+  window.__lowestPlopX = () => { if(!plops.length) return null; let lo=plops[0]; for(const p of plops) if(p.y>lo.y) lo=p; return Math.round(lo.x); };
 })();
 </script>
 </body>
