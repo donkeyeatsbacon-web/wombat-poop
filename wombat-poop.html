@@ -281,8 +281,10 @@
       tipSum += (c.tip||0);
     }
     pileCOMx = mx/m;
-    const pileH = platTop() - topY;
-    const hFactor = clamp(pileH/500, 0, 1.3);          // capped so high levels stay playable
+    // height measured from the CURRENT level's base, so the wobble feels the
+    // same every level (not more wobbly just because the world tower is taller)
+    const pileH = Math.max(0, raiseBaseY - topY);
+    const hFactor = clamp(pileH/500, 0, 1.3);
     const comOff = pileCOMx - plat.x;                  // + = heavy to the right
     const instability = clamp(tipSum*0.12 + hFactor*0.28, 0, 2);
 
