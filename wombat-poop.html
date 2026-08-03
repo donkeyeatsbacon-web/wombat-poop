@@ -696,9 +696,17 @@
     ctx.restore();
   }
 
+  // upward offset for the wombat + its platform during a level-up leap
+  function topHop(){
+    let h = 0;
+    if(jumpTimer > 0) h += Math.sin((1 - jumpTimer/32)*Math.PI) * 46;      // the leap arc
+    if(raising && camTarget) h += clamp(1 - camOffset/camTarget, 0, 1) * 60; // stay lifted until the camera catches up
+    return h;
+  }
+
   function drawTopPlat(){
     ctx.save();
-    ctx.translate(topPlat.x, topPlat.y);
+    ctx.translate(topPlat.x, topPlat.y - topHop());
     // support posts
     ctx.fillStyle = '#6f451f';
     ctx.fillRect(-topPlat.w/2+10, topPlat.h/2, 14, 40);
