@@ -842,6 +842,18 @@
     ctx.restore();
   }
 
+  // Ground at the base of the tower (world space, scrolls with the camera).
+  function drawGround(){
+    const gy = plat.y + 8;                       // grass line just under the catch platform
+    ctx.fillStyle = '#7cc23f';
+    ctx.fillRect(-60, gy, W + 120, 900);         // thick slab so no sky shows beneath while scrolling
+    ctx.fillStyle = '#5aa72f';
+    for(let i=0;i<24;i++){
+      const gx = i*32 - 30;
+      ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx+7, gy-16); ctx.lineTo(gx+14, gy); ctx.fill();
+    }
+  }
+
   function drawGoalLine(){
     if(state !== STATE.PLAY && state !== STATE.TOPPLE) return;
     const y = goalScreenY;
