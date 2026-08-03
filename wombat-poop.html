@@ -473,11 +473,14 @@
         const stackTopScreen = stackTopWorldY() + camOffset;
         if(stackTopScreen <= goalScreenY){
           raising = true; level++;
-          // leave only the top band of the pile visible near the bottom
+          raiseBaseY = stackTopWorldY();                 // reset the wobble reference for the new level
           camTarget = (H - RAISE_BAND) - stackTopWorldY();
+          jumpTimer = 32; raiseDelay = 16;               // wombat leaps up, THEN the camera follows
         }
       }
-      camOffset += (camTarget - camOffset) * 0.035;   // gentle, slower pan
+      if(jumpTimer > 0) jumpTimer--;
+      if(raiseDelay > 0) raiseDelay--;
+      else camOffset += (camTarget - camOffset) * 0.04;  // camera pans up to meet the wombat
       if(raising && Math.abs(camTarget - camOffset) < 1.0) raising = false;
     }
 
