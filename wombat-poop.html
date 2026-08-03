@@ -543,7 +543,7 @@
     const blink = wombat.blink > 0;
 
     ctx.save();
-    ctx.translate(wombat.x, wombat.y + wombat.wob*0.2);
+    ctx.translate(wombat.x, wombat.y + wombat.wob*0.2 - topHop());
     // scrunch: shake, squash down and widen when forcing one out
     const shakeX = push > 0.35 ? Math.sin(t*1.1) * (push-0.35) * 6 : 0;
     ctx.translate(shakeX, push*4);
