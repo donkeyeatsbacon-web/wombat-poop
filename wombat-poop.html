@@ -887,17 +887,12 @@
     ctx.translate(sx,sy);
 
     drawClouds();
-    // ground detail
-    ctx.fillStyle='#5aa72f';
-    for(let i=0;i<20;i++){
-      const gx = (i*40 + (t*0.2)%40);
-      ctx.beginPath();
-      ctx.moveTo(gx, H); ctx.lineTo(gx+6, H-18); ctx.lineTo(gx+12,H); ctx.fill();
-    }
 
-    // the tower, catch platform and falling poops scroll with the camera
+    // the ground, tower, catch platform and falling poops scroll with the
+    // camera — so climbing reads as the view rising, not the platform dropping
     ctx.save();
     ctx.translate(0, camOffset);
+    drawGround();
     drawPlatform();
     drawStack();
     // don't draw mid-air poops once the game is over (they'd hang frozen)
