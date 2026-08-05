@@ -964,8 +964,14 @@
   window.__setPointer = (x) => { pointerX = x; };
   window.__lowestPlopX = () => { if(!plops.length) return null; let lo=plops[0]; for(const p of plops) if(p.y>lo.y) lo=p; return Math.round(lo.x); };
   // any falling poop that is hovering (near-zero velocity, not near screen bottom)
-  window.__hovering = () => plops.filter(p => Math.abs(p.vy) < 0.4 && (p.y + camOffset) < H - 60)
-    .map(p => ({ x:Math.round(p.x), y:Math.round(p.y), vy:Math.round(p.vy*100)/100, vx:Math.round(p.vx*100)/100 }));
+  window.__hovering = () => plops.filter(p => {
+    if(Math.abs(p.vy) >= 0.4 || (p.y + camOffset) >= H - 60) return false;
+    const off = p.x - plat.x, bottom = p.y + p.h/2;
+    // genuinely floating = low vy, airborne, and NOTHING supporting it just below
+    if(Math.abs(platTop() - bottom) < 8 && off > -plat.w/2 && off < plat.w/2) return false;
+    for(const c of stack){ const ov=Math.min(off+p.w/2,c.off+c.w/2)-Math.max(off-p.w/2,c.off-c.w/2); if(ov>3 && Math.abs((c.y-c.h/2)-bottom)<8) return false; }
+    return true;
+  }).map(p => ({ x:Math.round(p.x), y:Math.round(p.y), vy:Math.round(p.vy*100)/100, vx:Math.round(p.vx*100)/100 }));
   // settled cubes with a gap below (floating)
   window.__gaps = () => stack.map(c=>{
     const bottom=c.y+c.h/2; let best=null;
