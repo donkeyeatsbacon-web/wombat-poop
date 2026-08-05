@@ -438,23 +438,30 @@
         if(resting && Math.abs(p.vy) < 0.6 && Math.abs(p.vx) < 0.6){
           const off = p.x - plat.x;
           const sup = restingSupport(off, p.w, p.y + p.h/2);  // what it's really on
+          let committing = false;
           if(sup){
-            // how far the poop sticks out past its support on each side
             const leftOver  = sup.supL - (off - p.w/2);
             const rightOver = (off + p.w/2) - sup.supR;
-            const maxOver = p.w * 0.33;                 // must sit mostly ON its support
-            if(leftOver <= maxOver && rightOver <= maxOver){
+            if(leftOver <= p.w*0.33 && rightOver <= p.w*0.33){   // sitting mostly ON its support
+              committing = true;
+              p.stuck = 0;
               p.settle = (p.settle||0) + 1;
-              if(p.settle >= 5){ settlePoop(p); plops.splice(i,1); continue; }
-            } else {
-              // overhanging too far — slide off toward the overhanging side
-              const openRight = rightOver > leftOver;
-              p.x += openRight ? 1.3 : -1.3;
-              p.vx += openRight ? 0.35 : -0.35;
-              p.settle = 0;
+              if(p.settle >= 3){ settlePoop(p); plops.splice(i,1); continue; }
             }
-          } else { p.settle = 0; }   // perched on a sliver over air — keep falling
-        } else { p.settle = 0; }
+          }
+          if(!committing){
+            // resting but can't commit here (overhanging / perched on a corner) —
+            // shove it off decisively so it FALLS instead of hovering in the air
+            p.settle = 0;
+            p.stuck = (p.stuck||0) + 1;
+            let dir;
+            if(sup) dir = ((off + p.w/2) - sup.supR) > (sup.supL - (off - p.w/2)) ? 1 : -1;
+            else    dir = (off >= 0 ? 1 : -1);
+            p.x += dir * (1.6 + Math.min(p.stuck, 8) * 0.5);
+            p.vx = dir * Math.max(Math.abs(p.vx), 1.6);
+            if(p.stuck > 3) p.vy = Math.max(p.vy, 1.3);          // guarantee it drops away
+          }
+        } else { p.settle = 0; p.stuck = 0; }
         // fell past the bottom of the screen -> miss
         if(p.y + camOffset - p.h/2 > H){
           plops.splice(i,1);
