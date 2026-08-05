@@ -457,9 +457,9 @@
             let dir;
             if(sup) dir = ((off + p.w/2) - sup.supR) > (sup.supL - (off - p.w/2)) ? 1 : -1;
             else    dir = (off >= 0 ? 1 : -1);
-            p.x += dir * (1.6 + Math.min(p.stuck, 8) * 0.5);
-            p.vx = dir * Math.max(Math.abs(p.vx), 1.6);
-            if(p.stuck > 3) p.vy = Math.max(p.vy, 1.3);          // guarantee it drops away
+            p.x += dir * (2.2 + Math.min(p.stuck, 8) * 0.6);
+            p.vx = dir * Math.max(Math.abs(p.vx), 2);
+            if(p.stuck > 1) p.vy = Math.max(p.vy, 1.4);          // guarantee it drops away fast
           }
         } else { p.settle = 0; p.stuck = 0; }
         // fell past the bottom of the screen -> miss
