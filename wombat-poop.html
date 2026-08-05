@@ -209,7 +209,10 @@
       const px = (p.w/2 + ow/2) - Math.abs(dx);
       const py = (p.h/2 + oh/2) - Math.abs(dy);
       if(px <= 0 || py <= 0) return;
-      if(py <= px){                                 // vertical overlap is smaller
+      // only "land on top" when the poop's centre is actually over this object;
+      // a poop merely grazing a top corner gets shoved off so it keeps falling
+      const centreOver = Math.abs(dx) <= ow/2 + p.w*0.1;
+      if(py <= px && centreOver){
         if(dy < 0){                                 // resting on its top
           p.y -= py;
           if(p.vy > 0) p.vy *= -0.12;               // tiny bounce
@@ -217,10 +220,9 @@
           p.vx *= 0.6;                              // friction
           resting = true;
         } else { p.y += py; if(p.vy < 0) p.vy = 0; }
-      } else {                                      // bonked a side — stop, don't pass through
+      } else {                                      // side / corner contact — shove off, don't perch
         if(dx < 0) p.x -= px; else p.x += px;
-        p.vx *= -0.28;
-        if(Math.abs(p.vx) < 0.15) p.vx = 0;
+        p.vx = (dx < 0 ? -1 : 1) * Math.max(Math.abs(p.vx)*0.3, 0.6);
       }
     };
     hit(plat.x, plat.y, plat.w, plat.h);
