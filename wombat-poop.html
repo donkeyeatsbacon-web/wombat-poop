@@ -1096,8 +1096,10 @@
     // don't draw mid-air poops once the game is over (they'd hang frozen)
     if(state !== STATE.OVER) for(const p of plops) drawPoop(p.x,p.y,p.w,p.h,p.rot,p.squish,p.hue,true);
     ctx.restore();
+    drawDiarrhea();                 // hot drops falling onto the tower
     // the wombat stays at the top of the screen as the poop source
     drawTopPlat();
+    drawLettuce();
     drawWombat();
     drawParticles();
     drawGoalLine();
