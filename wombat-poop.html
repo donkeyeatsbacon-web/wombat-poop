@@ -377,18 +377,46 @@
     if(wombat.blink>0) wombat.blink--;
 
     if(wombat.mode === 'crawl'){
-      wombat.crawl += 0.18;
-      wombat.wob = Math.sin(wombat.crawl) * 4;
-      wombat.x += wombat.dir * 1.6;
-      const bound = topPlat.w/2 - 40;
-      if(wombat.x < W/2 - bound){ wombat.x = W/2 - bound; wombat.dir = 1; }
-      if(wombat.x > W/2 + bound){ wombat.x = W/2 + bound; wombat.dir = -1; }
-      if(Math.random() < 0.008) wombat.dir *= -1;
-      // face the way it's walking (turn to the side)
-      wombat.face += (wombat.dir - wombat.face) * 0.12;
-      wombat.strain += (0 - wombat.strain) * 0.1;
-      if(Math.random() < 0.01) wombat.blink = 8;
-      if(t >= nextSpawn){ wombat.mode = 'prep'; wombat.timer = 0; }
+      if(lettuce && lettuce.landed){ wombat.mode = 'seek'; }
+      else {
+        wombat.crawl += 0.18;
+        wombat.wob = Math.sin(wombat.crawl) * 4;
+        wombat.x += wombat.dir * 1.6;
+        const bound = topPlat.w/2 - 40;
+        if(wombat.x < W/2 - bound){ wombat.x = W/2 - bound; wombat.dir = 1; }
+        if(wombat.x > W/2 + bound){ wombat.x = W/2 + bound; wombat.dir = -1; }
+        if(Math.random() < 0.008) wombat.dir *= -1;
+        // face the way it's walking (turn to the side)
+        wombat.face += (wombat.dir - wombat.face) * 0.12;
+        wombat.strain += (0 - wombat.strain) * 0.1;
+        if(Math.random() < 0.01) wombat.blink = 8;
+        if(t >= nextSpawn){ wombat.mode = 'prep'; wombat.timer = 0; }
+      }
+
+    } else if(wombat.mode === 'seek'){
+      // spotted the lettuce — hustle over to it
+      if(!lettuce){ wombat.mode = 'crawl'; }
+      else {
+        const dx = lettuce.x - wombat.x;
+        wombat.dir = dx < 0 ? -1 : 1;
+        wombat.crawl += 0.26;
+        wombat.wob = Math.sin(wombat.crawl) * 5;
+        wombat.x += clamp(dx, -2.6, 2.6);
+        wombat.face += (wombat.dir - wombat.face) * 0.16;
+        if(Math.abs(dx) < 12){ wombat.mode = 'eat'; wombat.timer = 0; wombat.face = 0; }
+      }
+
+    } else if(wombat.mode === 'eat'){
+      // chomp chomp
+      wombat.timer++;
+      wombat.face += (0 - wombat.face) * 0.25;
+      wombat.wob = Math.sin(wombat.timer * 0.9) * 3;
+      if(wombat.timer > 26){
+        lettuce = null;
+        diarrheaTimer = 210; diarrheaSpawn = t;   // uh oh — a few seconds of the runs
+        nextSpawn = t + 1e9;                       // no normal poops meanwhile
+        wombat.mode = 'crawl';
+      }
 
     } else if(wombat.mode === 'prep'){
       // stop, settle, and turn to face forward before pooping
