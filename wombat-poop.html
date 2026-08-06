@@ -507,6 +507,7 @@
       plat.x = clamp(plat.x, plat.w/2, W - plat.w/2);
 
       updateWombat();
+      updateHazards();
 
       // update falling plops with simple box physics + real collisions
       for(let i=plops.length-1;i>=0;i--){
