@@ -408,6 +408,85 @@
     }
   }
 
+  // ---------- Lettuce & diarrhea hazard ----------
+  function spawnLettuce(){
+    const b = topPlat.w/2 - 70;
+    lettuce = { x: W/2 + rand(-b, b), y: -30, vy: 0, landed: false, wob: 0 };
+  }
+
+  // highest surface directly under a drop at platform-offset offX: a cube top,
+  // the platform, or null (nothing there)
+  function diarrheaSurface(offX){
+    let bestTop = Infinity, bestCube = null;
+    for(const c of stack){
+      if(Math.abs(offX - c.off) < c.w/2){ const top = c.y - c.h/2; if(top < bestTop){ bestTop = top; bestCube = c; } }
+    }
+    if(bestCube) return { y: bestTop, cube: bestCube };
+    if(offX > -plat.w/2 && offX < plat.w/2) return { y: platTop(), cube: null };
+    return null;
+  }
+
+  function meltCube(c){
+    if(c.melting || c.melted) return;
+    c.melting = true; c.meltT = 0;
+    c.bottomY = c.y + c.h/2; c.origH = c.h; c.origW = c.w;
+    shake = Math.min(shake + 3, 10);
+  }
+
+  function shrinkPlatform(x){
+    plat.shrink = Math.min(plat.shrink + SMALL_CUBE, SMALL_CUBE*3);
+    plat.shrinkTimer = 1800;                    // ~30 seconds
+    plat.w = plat.baseW - plat.shrink;
+    plat.x = clamp(plat.x, plat.w/2, W - plat.w/2);
+    shake = Math.min(shake + 6, 14);
+    for(let k=0;k<7;k++) particles.push({ x, y: plat.y - plat.h/2 + camOffset,
+      vx: rand(-2.2,2.2), vy: rand(-3,-0.5), life: rand(16,30), max:30, r: rand(3,6), color:'#eaf6ff', kind:'puff' });
+  }
+
+  function diarrheaSplat(x, screenY){
+    for(let k=0;k<6;k++) particles.push({ x, y: screenY, vx: rand(-3,3), vy: rand(-4,-0.5),
+      life: rand(14,26), max:26, r: rand(3,7), color:'#7a5a1e', kind:'splat', g:.3 });
+  }
+
+  function updateHazards(){
+    // maybe drop a lettuce for the wombat (not while it's already busy)
+    if(!lettuce && diarrheaTimer<=0 && wombat.mode==='crawl' && Math.random() < 0.0016) spawnLettuce();
+    if(lettuce && !lettuce.landed){
+      lettuce.vy += 0.5; lettuce.y += lettuce.vy;
+      const surf = topPlat.y - 20;
+      if(lettuce.y >= surf){ lettuce.y = surf; lettuce.landed = true; }
+    }
+    if(lettuce) lettuce.wob = Math.sin(t*0.2) * 2;
+
+    // wombat spraying diarrhea
+    if(diarrheaTimer > 0){
+      diarrheaTimer--;
+      if(t >= diarrheaSpawn){
+        diarrheaSpawn = t + 3;
+        for(let k=0;k<2;k++) diarrhea.push({ x: wombat.x + rand(-12,12), y: wombat.y + 50 - camOffset,
+          vx: rand(-1.3,1.3), vy: rand(0.4,1.4), r: rand(6,11) });
+        wombat.strain = 0.85;
+      }
+      if(diarrheaTimer === 0) nextSpawn = t + rand(60, 120);   // normal pooping resumes
+    }
+
+    // fall + land the drops
+    for(let i=diarrhea.length-1;i>=0;i--){
+      const d = diarrhea[i];
+      d.vy += GRAV*1.7; d.y += d.vy; d.x += d.vx; d.vx *= 0.99;
+      const s = diarrheaSurface(d.x - plat.x);
+      if(s && d.y + d.r >= s.y){
+        if(s.cube) meltCube(s.cube); else shrinkPlatform(d.x);
+        diarrheaSplat(d.x, s.y + camOffset);
+        diarrhea.splice(i,1); continue;
+      }
+      if(d.y + camOffset > H + 40) diarrhea.splice(i,1);
+    }
+
+    // platform slowly earned back after the shrink timer runs out
+    if(plat.shrinkTimer > 0){ plat.shrinkTimer--; if(plat.shrinkTimer===0){ plat.shrink=0; plat.w=plat.baseW; } }
+  }
+
   // ---------- Update ----------
   function update(){
     t++;
