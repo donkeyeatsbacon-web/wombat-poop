@@ -279,7 +279,18 @@
   }
 
   function updateStack(){
-    for(const c of stack){ c.squish += (1 - c.squish) * 0.18; c.x = plat.x + c.off; }
+    for(const c of stack){
+      c.squish += (1 - c.squish) * 0.18; c.x = plat.x + c.off;
+      // a cube hit by diarrhea melts down into a flat puddle of its own
+      if(c.melting){
+        c.meltT++;
+        const p = Math.min(1, c.meltT/28);
+        c.h = c.origH * (1 - p*0.82);        // shrink almost flat
+        c.w = c.origW * (1 + p*0.22);        // spread out
+        c.y = c.bottomY - c.h/2;             // keep its bottom planted
+        if(p >= 1){ c.melting = false; c.melted = true; c.tip = 0; }
+      }
+    }
     if(!stack.length){
       danger += (0 - danger) * 0.2; pileCOMx = plat.x;
       pileSway *= 0.8; pileSwayV *= 0.8; pileSwayShown *= 0.8; return;
