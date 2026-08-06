@@ -1137,6 +1137,17 @@
     requestAnimationFrame(loop);
   }
   loop();
+  window.__dbg = () => ({state, wmode: wombat.mode, wx: Math.round(wombat.x), diarrheaTimer,
+    lettuce: lettuce ? {x:Math.round(lettuce.x), landed:lettuce.landed} : null, drops: diarrhea.length,
+    platW: Math.round(plat.w), platShrink: plat.shrink, shrinkTimer: plat.shrinkTimer,
+    height: stack.length, melted: stack.filter(c=>c.melted||c.melting).length, level, misses });
+  window.__step = (n=1) => { for(let i=0;i<n;i++){ update(); render(); } };
+  window.__start = () => { if(state!==STATE.PLAY) start(); };
+  window.__setPointer = (x) => { pointerX = x; };
+  window.__lowestPlopX = () => { if(!plops.length) return null; let lo=plops[0]; for(const p of plops) if(p.y>lo.y) lo=p; return Math.round(lo.x); };
+  window.__spawnLettuce = () => spawnLettuce();
+  window.__dropAt = (worldX) => diarrhea.push({ x: worldX, y: stackTopWorldY() - 120, vx:0, vy:2, r:8 });
+  window.__stackInfo = () => stack.map(c=>({off:Math.round(c.off), w:Math.round(c.w), h:Math.round(c.h), melted:!!c.melted, melting:!!c.melting}));
 })();
 </script>
 </body>
