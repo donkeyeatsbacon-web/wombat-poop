@@ -378,6 +378,14 @@
 
     if(wombat.mode === 'crawl'){
       if(lettuce && lettuce.landed){ wombat.mode = 'seek'; }
+      else if(diarrheaTimer > 0){
+        // queasy — stagger toward the tower and rain diarrhea down on it
+        const bound = topPlat.w/2 - 40;
+        const target = clamp(plat.x, W/2 - bound, W/2 + bound);
+        wombat.x += clamp(target - wombat.x, -1.5, 1.5);
+        wombat.wob = Math.sin(t*0.5) * 6;
+        wombat.face += (0 - wombat.face) * 0.1;
+      }
       else {
         wombat.crawl += 0.18;
         wombat.wob = Math.sin(wombat.crawl) * 4;
