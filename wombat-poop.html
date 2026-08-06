@@ -502,8 +502,8 @@
       diarrheaTimer--;
       if(t >= diarrheaSpawn){
         diarrheaSpawn = t + 3;
-        for(let k=0;k<2;k++) diarrhea.push({ x: wombat.x + rand(-12,12), y: wombat.y + 50 - camOffset,
-          vx: rand(-1.3,1.3), vy: rand(0.4,1.4), r: rand(6,11) });
+        for(let k=0;k<3;k++) diarrhea.push({ x: wombat.x + rand(-22,22), y: wombat.y + 50 - camOffset,
+          vx: rand(-2.6,2.6), vy: rand(0.4,1.4), r: rand(6,11) });
         wombat.strain = 0.85;
       }
       if(diarrheaTimer === 0) nextSpawn = t + rand(60, 120);   // normal pooping resumes
