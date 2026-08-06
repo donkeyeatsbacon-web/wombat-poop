@@ -131,6 +131,8 @@
     camOffset = 0; camTarget = 0; level = 1; raising = false;
     raiseBaseY = platTop(); jumpTimer = 0; raiseDelay = 0;
     pileSway = 0; pileSwayV = 0; pileSwayShown = 0; pileCOMx = W/2;
+    lettuce = null; diarrhea = []; diarrheaTimer = 0; diarrheaSpawn = 0;
+    plat.w = plat.baseW; plat.shrink = 0; plat.shrinkTimer = 0;
   }
   function start(){ reset(); state = STATE.PLAY; }
 
