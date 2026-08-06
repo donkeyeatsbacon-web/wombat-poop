@@ -65,11 +65,17 @@
   let pileSwayShown = 0;                  // smoothed value used for drawing
   const goalScreenY = Math.round(H/3);   // red goal line ~2/3 of the way up
   const RAISE_BAND = 180;                 // how much of the pile stays visible after a raise
+  // lettuce / diarrhea hazard
+  let lettuce = null;                     // {x,y,vy,landed} a leaf that lands by the wombat
+  let diarrhea = [];                      // hot liquid drops the wombat sprays
+  let diarrheaTimer = 0, diarrheaSpawn = 0;
+  const SMALL_CUBE = 30;                  // smallest poop size / platform shrink amount
 
   // ---------- Platform (player) ----------
   const plat = {
     w: 150, h: 26, x: W/2, y: H - 70,
-    vx: 0, targetX: W/2, speed: 9
+    vx: 0, targetX: W/2, speed: 9,
+    baseW: 150, shrink: 0, shrinkTimer: 0   // diarrhea can shrink the platform for a while
   };
 
   // ---------- Wombat ----------
