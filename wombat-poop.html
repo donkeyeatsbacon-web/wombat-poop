@@ -420,6 +420,7 @@
       if(wombat.timer > 26){
         lettuce = null;
         diarrheaTimer = 210; diarrheaSpawn = t;   // uh oh — a few seconds of the runs
+        diarrheaX = wombat.x;                       // it drips from right here for the duration
         nextSpawn = t + 1e9;                       // no normal poops meanwhile
         wombat.mode = 'crawl';
       }
