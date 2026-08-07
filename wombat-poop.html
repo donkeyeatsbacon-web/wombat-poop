@@ -469,7 +469,7 @@
   // ---------- Lettuce & diarrhea hazard ----------
   function spawnLettuce(){
     const b = topPlat.w/2 - 70;
-    lettuce = { x: W/2 + rand(-b, b), y: -30, vy: 0, landed: false, wob: 0 };
+    lettuce = { x: W/2 + rand(-b, b), y: -30, vy: 0, landed: false, wob: 0, eatScale: 1 };
   }
 
   // highest surface directly under a drop at platform-offset offX: a cube top,
