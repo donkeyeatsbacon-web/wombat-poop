@@ -413,11 +413,23 @@
       }
 
     } else if(wombat.mode === 'eat'){
-      // chomp chomp
+      // chomp chomp chomp
       wombat.timer++;
-      wombat.face += (0 - wombat.face) * 0.25;
-      wombat.wob = Math.sin(wombat.timer * 0.9) * 3;
-      if(wombat.timer > 26){
+      wombat.face += (0 - wombat.face) * 0.3;                 // face forward to eat
+      const chomp = Math.sin(wombat.timer * 0.5);            // -1..1 jaw cycle
+      wombat.wob = -Math.abs(chomp) * 6;                     // head dips down on each bite
+      if(lettuce){
+        // lift the leaf up to the mouth and nibble it away
+        lettuce.x += (wombat.x - lettuce.x) * 0.3;
+        lettuce.y += ((wombat.y + 16) - lettuce.y) * 0.3;
+        lettuce.eatScale = clamp(1 - wombat.timer/42, 0, 1);
+        if(wombat.timer % 12 === 6){                          // a bite — spit out crunch bits
+          for(let k=0;k<6;k++) particles.push({ x: lettuce.x + rand(-10,10), y: lettuce.y - topHop() + rand(-6,6),
+            vx: rand(-3,3), vy: rand(-3.5,-0.5), life: rand(12,24), max:24, r: rand(2,4), color:'#7cc743', kind:'splat', g:.25 });
+          shake = Math.min(shake + 2, 6);
+        }
+      }
+      if(wombat.timer > 42){
         lettuce = null;
         diarrheaTimer = 210; diarrheaSpawn = t;   // uh oh — a few seconds of the runs
         diarrheaX = wombat.x;                       // it drips from right here for the duration
