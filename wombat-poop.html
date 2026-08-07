@@ -930,8 +930,11 @@
 
   function drawLettuce(){
     if(!lettuce) return;
+    const sc = lettuce.eatScale == null ? 1 : lettuce.eatScale;
+    if(sc <= 0.02) return;
     ctx.save();
     ctx.translate(lettuce.x + lettuce.wob, lettuce.y - topHop());
+    ctx.scale(sc, sc);
     // ruffled leaf
     ctx.fillStyle = '#7cc743';
     for(let i=0;i<6;i++){
