@@ -1144,12 +1144,6 @@
     requestAnimationFrame(loop);
   }
   loop();
-  window.__dbg = () => ({state, wmode: wombat.mode, wx: Math.round(wombat.x), diarrheaTimer, diarrheaX: Math.round(diarrheaX), drops: diarrhea.length });
-  window.__step = (n=1) => { for(let i=0;i<n;i++){ update(); render(); } };
-  window.__start = () => { if(state!==STATE.PLAY) start(); };
-  window.__setPointer = (x) => { pointerX = x; };
-  window.__spawnLettuce = () => spawnLettuce();
-  window.__dropXs = () => diarrhea.map(d=>Math.round(d.x));
 })();
 </script>
 </body>
