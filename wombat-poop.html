@@ -1168,6 +1168,12 @@
     requestAnimationFrame(loop);
   }
   loop();
+  window.__dbg = () => ({state, wmode: wombat.mode, timer: wombat.timer,
+    eatScale: lettuce ? Math.round((lettuce.eatScale==null?1:lettuce.eatScale)*100)/100 : null,
+    diarrheaTimer, wob: Math.round(wombat.wob) });
+  window.__step = (n=1) => { for(let i=0;i<n;i++){ update(); render(); } };
+  window.__start = () => { if(state!==STATE.PLAY) start(); };
+  window.__spawnLettuce = () => spawnLettuce();
 })();
 </script>
 </body>
