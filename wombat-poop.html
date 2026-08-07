@@ -803,7 +803,16 @@
 
     // mouth
     ctx.lineCap='round';
-    if(push > 0.5){
+    if(wombat.mode === 'eat'){
+      // chomping: mouth opens and snaps shut
+      const open = Math.abs(Math.sin(wombat.timer * 0.5));   // 0 (shut) .. 1 (wide)
+      ctx.fillStyle = '#6e2b2b';
+      ctx.beginPath(); ctx.ellipse(0, 13, 12, 3 + open*11, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#d67b7b';                              // tongue
+      ctx.beginPath(); ctx.ellipse(0, 16 + open*4, 7, 2 + open*3, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff';                                 // little teeth
+      ctx.fillRect(-8, 13 - (3+open*11), 4, 3); ctx.fillRect(4, 13 - (3+open*11), 4, 3);
+    } else if(push > 0.5){
       // strained, gritted grimace
       ctx.fillStyle='#5a3a24';
       ctx.beginPath(); ctx.ellipse(turn*6, 17, 9, 6 + push*4, 0, 0, 7); ctx.fill();
