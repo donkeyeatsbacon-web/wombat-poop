@@ -452,7 +452,7 @@
     ctx.font='bold 16px "Comic Sans MS",cursive'; ctx.textAlign='center';
     ctx.fillText((n.type==='mate'?'💗 ':'😤 ')+n.name, n.x, n.y+46);
     ctx.fillStyle='#333'; ctx.font='13px "Comic Sans MS",cursive';
-    ctx.fillText(done? 'done' : ('stack '+n.target), n.x, n.y+62);
+    ctx.fillText(done? 'done' : (n.stacks+'× stack of '+n.target), n.x, n.y+62);
   }
 
   function drawOverworldHUD(){
