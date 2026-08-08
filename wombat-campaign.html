@@ -104,10 +104,10 @@
     for(const s of spots){
       if(s.type==='mate'){
         nodes.push({ x:s.x, y:s.y, type:'mate', name:MATE_NAMES[mi++%MATE_NAMES.length],
-          target: 5 + (mi%2), state:'open' });
+          target: 4, stacks: 2, state:'open' });
       } else {
         nodes.push({ x:s.x, y:s.y, type:'rival', name:RIVAL_NAMES[ri++%RIVAL_NAMES.length],
-          target: 7 + (ri%2), state:'open', rivalTimer: 0 });
+          target: 5, stacks: 3, state:'open', rivalTimer: 0 });
       }
     }
     womb.x = homeNode.x; womb.y = homeNode.y - 4;
