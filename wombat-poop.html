@@ -32,6 +32,33 @@
     text-shadow: 0 1px 0 rgba(255,255,255,.4);
     pointer-events: none;
   }
+  #saveOverlay {
+    position: absolute; inset: 0; z-index: 10;
+    display: none; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.35);
+  }
+  #saveBox {
+    background: #fff8e7; border: 4px solid #7a3d12; border-radius: 18px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.4);
+    padding: 26px 30px; text-align: center; max-width: 88%;
+    color: #5a2d0c;
+  }
+  #saveTitle { font-size: 30px; font-weight: bold; color: #c9860a; }
+  #saveSub   { font-size: 18px; margin: 8px 0 16px; color: #7a3d12; }
+  #nameEntry {
+    font-family: inherit; font-size: 24px; text-align: center;
+    padding: 8px 12px; width: 240px; max-width: 100%;
+    border: 3px solid #7a3d12; border-radius: 10px; background: #fff;
+    color: #5a2d0c; outline: none;
+  }
+  #saveBtns { margin-top: 18px; display: flex; gap: 12px; justify-content: center; }
+  #saveBtns button {
+    font-family: inherit; font-size: 20px; font-weight: bold;
+    padding: 10px 22px; border-radius: 12px; border: 3px solid #4a7a25;
+    cursor: pointer;
+  }
+  #saveBtn  { background: #7bed9f; color: #14532d; }
+  #skipBtn  { background: #eee; color: #555; border-color: #999; }
 </style>
 </head>
 <body>
