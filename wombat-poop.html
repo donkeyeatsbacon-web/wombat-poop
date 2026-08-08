@@ -1263,7 +1263,7 @@
       centerText([
         {text: misses>=maxMiss ? '🧻 Out of toilet paper!' : '🗼 TIMBERRR!', font:'bold 46px "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:70},
         {text:'Score: ' + score, font:'bold 40px "Comic Sans MS", cursive', color:'#ffe14d', stroke:true, gap:46},
-        {text:'Best: ' + Math.max(best,score), font:'26px "Comic Sans MS", cursive', gap:36},
+        {text:'Best: ' + Math.max(best,highScore) + (highName ? ' (' + highName + ')' : ''), font:'26px "Comic Sans MS", cursive', gap:36},
         {text:'Reached level ' + level + ' · ' + stack.length + ' plops', font:'22px "Comic Sans MS", cursive', gap:80},
         {text:'▶ Click / Space to poop again', font:'bold 26px "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
       ]);
