@@ -149,6 +149,7 @@
 
   // ---------- Input ----------
   window.addEventListener('keydown', e => {
+    if (entering) return;                       // typing a high-score name — ignore game controls
     keys[e.key.toLowerCase()] = true;
     if (e.key === ' ' || ['arrowleft','arrowright','arrowup','arrowdown'].includes(e.key.toLowerCase())) e.preventDefault();
     if (e.key.toLowerCase() === 'p' && state === STATE.PLAY) paused = !paused;
