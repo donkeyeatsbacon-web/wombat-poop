@@ -187,7 +187,40 @@
     lettuce = null; diarrhea = []; diarrheaTimer = 0; diarrheaSpawn = 0; diarrheaX = 0;
     plat.w = plat.baseW; plat.shrink = 0; plat.shrinkTimer = 0;
   }
-  function start(){ reset(); state = STATE.PLAY; }
+  function start(){ hideSaveOverlay(); reset(); state = STATE.PLAY; }
+
+  // ---------- Game over + high-score entry ----------
+  const saveOverlay = document.getElementById('saveOverlay');
+  const nameEntry   = document.getElementById('nameEntry');
+  const saveSub     = document.getElementById('saveSub');
+
+  function endGame(){
+    state = STATE.OVER;
+    best = Math.max(best, score);
+    if(score > highScore){
+      // new personal best — let the player put their name to it
+      entering = true;
+      saveSub.textContent = 'Score ' + score + (highScore ? ' · beat ' + highScore : '');
+      nameEntry.value = highName;
+      saveOverlay.style.display = 'flex';
+      setTimeout(() => { nameEntry.focus(); nameEntry.select(); }, 0);
+    }
+  }
+  function hideSaveOverlay(){ entering = false; saveOverlay.style.display = 'none'; }
+  function commitHigh(){
+    highName = (nameEntry.value.trim() || 'Wombat').slice(0, 12);
+    highScore = score;
+    best = Math.max(best, highScore);
+    saveHigh();
+    hideSaveOverlay();
+  }
+  document.getElementById('saveBtn').addEventListener('click', commitHigh);
+  document.getElementById('skipBtn').addEventListener('click', hideSaveOverlay);
+  nameEntry.addEventListener('keydown', e => {
+    e.stopPropagation();                       // don't let the game see these keys
+    if(e.key === 'Enter') commitHigh();
+    else if(e.key === 'Escape') hideSaveOverlay();
+  });
 
   // ---------- Spawning poop ----------
   function spawnPlop(){
