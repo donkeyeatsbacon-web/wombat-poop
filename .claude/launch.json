@@ -4,9 +4,8 @@
     {
       "name": "wombat",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server"],
-      "port": 8752,
-      "autoPort": true
+      "runtimeArgs": ["-m", "http.server", "8763"],
+      "port": 8763
     }
   ]
 }
