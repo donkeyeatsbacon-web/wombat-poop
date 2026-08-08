@@ -250,6 +250,7 @@
       if(success){
         player.charm = clamp(player.charm + 22, 0, CHARM_GOAL);
         const b = grantRandom(BUFFS, player.buffs);
+        if(player.debuffs.length) player.debuffs.shift();   // love soothes an old debuff
         node.state = 'done';
         showToast(node.name + ' is smitten! +22 charm' + (b?'  ·  buff: '+b.icon+' '+b.name:''));
       } else {
@@ -263,12 +264,14 @@
       } else {
         player.threat = clamp(player.threat + 12, 0, THREAT_MAX);
         const d = grantRandom(DEBUFFS, player.debuffs);
+        if(player.buffs.length) player.buffs.shift();        // the bully knocks off a buff
         showToast(node.name + ' bullied you! +12 threat' + (d?'  ·  debuff: '+d.icon+' '+d.name:''));
       }
     }
     L = null;
     advanceDay();
     if(mode === MODE.LEVEL) mode = MODE.OVERWORLD;   // (advanceDay may flip to WIN/LOSE)
+    if(mode === MODE.OVERWORLD) repopulateIfCleared();
   }
 
   function grantRandom(pool, list){
