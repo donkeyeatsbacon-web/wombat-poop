@@ -497,6 +497,10 @@
     }
     // falling plops
     for(const p of L.plops) drawPoopCube(p.x, p.y, p.w, p.h, p.rot, 1, 0);
+    // celebration stars when a stack is banked
+    for(const s of L.stars){ ctx.globalAlpha = clamp(s.life/20,0,1); ctx.fillStyle=s.col;
+      ctx.beginPath(); ctx.arc(s.x, s.y, 5, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
 
     // pooping wombat on a rail at the top
     ctx.fillStyle='#9c6531'; ctx.fillRect(60,120,W-120,14);
