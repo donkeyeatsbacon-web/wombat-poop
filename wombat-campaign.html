@@ -79,6 +79,7 @@
   // =====================================================================
   let nodes = [];      // {x,y,type,name,target,state:'open'|'done'|'lost',rivalTimer}
   let homeNode = null;
+  let wave = 0;
   let womb = { x: W/2, y: H*0.78, dir: 1, bob: 0 };   // player wombat avatar
   let travel = null;   // {node, from, tprogress}
   let toast = null;    // transient overworld message {text, life}

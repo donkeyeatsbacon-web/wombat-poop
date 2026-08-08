@@ -85,6 +85,21 @@
   const STATE = { MENU: 0, PLAY: 1, TOPPLE: 2, OVER: 3 };
   let state = STATE.MENU;
   let score = 0, best = 0, misses = 0, maxMiss = 3;
+
+  // ---------- Personal high score (persisted across sessions) ----------
+  const HS_KEY = 'wombatPoopHigh';
+  let highScore = 0, highName = '';
+  let entering = false;          // true while the name-entry overlay is open
+  (function loadHigh(){
+    try {
+      const d = JSON.parse(localStorage.getItem(HS_KEY) || 'null');
+      if(d){ highScore = d.score|0; highName = d.name || ''; best = highScore; }
+    } catch(e){}
+  })();
+  function saveHigh(){
+    try { localStorage.setItem(HS_KEY, JSON.stringify({ name: highName, score: highScore })); }
+    catch(e){}
+  }
   let shake = 0, toppleTimer = 0;
   let particles = [];
   let plops = [];        // falling poop cubes
