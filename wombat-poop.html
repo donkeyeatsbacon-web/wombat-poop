@@ -162,8 +162,8 @@
     return (clientX - r.left) * (W / r.width);
   }
   cv.addEventListener('mousemove', e => pointerX = canvasX(e.clientX));
-  cv.addEventListener('mousedown', e => { pointerX = canvasX(e.clientX); if(state!==STATE.PLAY) start(); });
-  cv.addEventListener('touchstart', e => { pointerX = canvasX(e.touches[0].clientX); if(state!==STATE.PLAY) start(); e.preventDefault(); }, {passive:false});
+  cv.addEventListener('mousedown', e => { pointerX = canvasX(e.clientX); if(!entering && state!==STATE.PLAY) start(); });
+  cv.addEventListener('touchstart', e => { pointerX = canvasX(e.touches[0].clientX); if(!entering && state!==STATE.PLAY) start(); e.preventDefault(); }, {passive:false});
   cv.addEventListener('touchmove', e => { pointerX = canvasX(e.touches[0].clientX); e.preventDefault(); }, {passive:false});
   cv.addEventListener('mouseleave', () => pointerX = null);
 
