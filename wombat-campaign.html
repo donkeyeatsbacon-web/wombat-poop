@@ -157,11 +157,12 @@
       platX: W/2, platW: p.platW, platY: H - 120,
       fallMul: p.fallMul, maxMiss: p.maxMiss, margin: p.margin, target: p.target,
       cubes: [], plops: [], misses: 0,
-      towerTop: H - 120 - 13,           // world y of the top of the tower (starts at platform)
       comx: W/2, sway: 0, swayV: 0,
       wombatX: W/2, wombatDir: 1, wombatCrawl: 0, strain: 0,
-      spawnT: t + 40, result: null, resultT: 0,
-      shake: 0, goalY: (H - 120) - (node.target*46) - 20   // reach this line to win
+      spawnT: t + 40, result: null, resultT: 0, shake: 0,
+      goalY: (H - 120) - (p.target*46) - 20,          // reach this line = one stack done
+      stacksNeeded: node.stacks || 1, stacksDone: 0,   // finish this many stacks to win the level
+      banking: 0, stars: []
     };
     mode = MODE.LEVEL;
   }
