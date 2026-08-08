@@ -138,7 +138,8 @@
       if(n.type==='home') continue;
       n.state = 'open';
       n.name = (n.type==='mate' ? MATE_NAMES : RIVAL_NAMES)[(Math.random()*4)|0];
-      n.target = (n.type==='mate' ? 5 : 7) + wave;   // tougher each wave
+      n.target = (n.type==='mate' ? 4 : 5) + Math.floor(wave/2);   // taller stacks each season
+      n.stacks = (n.type==='mate' ? 2 : 3) + Math.floor(wave/2);   // and more of them
     }
     showToast('🌱 A new season! The habitat fills with fresh faces. (Wave '+(wave+1)+')');
   }
