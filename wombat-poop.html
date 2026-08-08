@@ -726,7 +726,7 @@
           splat(p.x, H-6);
           shake = Math.min(shake+6, 14);
           if(misses >= maxMiss){
-            state = STATE.OVER; best = Math.max(best,score);
+            endGame();
           }
           continue;
         }
