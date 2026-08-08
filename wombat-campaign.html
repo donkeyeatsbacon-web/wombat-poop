@@ -196,6 +196,18 @@
       if(L.resultT > 70) endLevel(L.result === 'win');
       return;
     }
+    // a completed stack is being banked — celebrate, then clear for the next one
+    if(L.banking > 0){
+      L.banking--;
+      for(const c of L.cubes) c.y -= 3;                 // the finished stack floats away
+      for(const s of L.stars){ s.x+=s.vx; s.y+=s.vy; s.vy+=0.15; s.life--; }
+      L.stars = L.stars.filter(s=>s.life>0);
+      if(L.banking === 0){
+        L.cubes = []; L.plops = []; L.sway = 0; L.swayV = 0; L.spawnT = t + 30;
+        if(L.stacksDone >= L.stacksNeeded){ L.result = 'win'; L.resultT = 0; }
+      }
+      return;
+    }
     if(L.shake>0) L.shake *= 0.85;
 
     // move platform (keys / pointer)
