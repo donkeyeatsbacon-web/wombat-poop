@@ -1279,6 +1279,7 @@
     render();
     requestAnimationFrame(loop);
   }
+  window.__test = { over:(s)=>{ score=s; endGame(); }, high:()=>({highScore, highName, state, entering}) };
   loop();
 })();
 </script>
