@@ -253,8 +253,14 @@
       L.swayV -= L.sway*0.05; L.swayV *= 0.92; L.sway += L.swayV;
       for(const c of L.cubes) c.squish += (1-c.squish)*0.18;
       if(Math.abs(off) > L.platW/2 + L.margin){ L.result='lose'; L.resultT=0; L.shake=16; }
-      // reached the goal line -> success
-      if(levelTowerTopY() <= L.goalY){ L.result='win'; L.resultT=0; }
+      // reached the goal line -> this stack is complete; bank it and start a new one
+      else if(levelTowerTopY() <= L.goalY){
+        L.stacksDone++;
+        L.banking = 40;
+        // a celebratory burst
+        for(let k=0;k<16;k++) L.stars.push({ x: L.comx, y: L.goalY, vx: rand(-4,4), vy: rand(-6,-1),
+          life: rand(24,44), col:['#ffe14d','#ff9ff3','#7bed9f','#70a1ff'][k%4] });
+      }
     }
   }
 
