@@ -64,6 +64,17 @@
 <body>
 <div id="wrap"><canvas id="game" width="720" height="960"></canvas></div>
 <div id="hint">← → or A/D or mouse/finger to move &nbsp;·&nbsp; P to pause &nbsp;·&nbsp; catch the plops, don't let the tower topple!</div>
+<div id="saveOverlay">
+  <div id="saveBox">
+    <div id="saveTitle">🏆 New personal best!</div>
+    <div id="saveSub"></div>
+    <input id="nameEntry" maxlength="12" placeholder="Your name" autocomplete="off" spellcheck="false" />
+    <div id="saveBtns">
+      <button id="saveBtn">Save</button>
+      <button id="skipBtn">Skip</button>
+    </div>
+  </div>
+</div>
 <script>
 (() => {
   const cv = document.getElementById('game');
