@@ -511,11 +511,20 @@
     ctx.fillStyle='#2d5016'; ctx.font='bold 26px "Comic Sans MS",cursive'; ctx.textAlign='left';
     ctx.fillText((L.node.type==='mate'?'💗 Impress ':'😤 Out-stack ')+L.node.name, 16, 40);
     ctx.font='18px "Comic Sans MS",cursive';
-    ctx.fillText('height '+L.cubes.length+' / '+L.target, 16, 66);
-    // toilet paper lives
+    ctx.fillText('stack '+(Math.min(L.stacksDone+1,L.stacksNeeded))+' / '+L.stacksNeeded
+      + '   ·   height '+L.cubes.length+' / '+L.target, 16, 66);
+    // toilet paper lives (shared across the whole level)
     ctx.textAlign='right'; ctx.font='24px serif'; let s='';
     for(let i=0;i<L.maxMiss;i++) s += i<L.maxMiss-L.misses ? '🧻' : '❌';
     ctx.fillText(s, W-14, 44); ctx.textAlign='left';
+    // "stack complete!" flourish while banking
+    if(L.banking > 0){
+      ctx.textAlign='center'; ctx.fillStyle='#2d5016'; ctx.font='bold 40px "Comic Sans MS",cursive';
+      ctx.fillText('✅ Stack complete!', W/2, H*0.5);
+      if(L.stacksDone < L.stacksNeeded){ ctx.font='20px "Comic Sans MS",cursive';
+        ctx.fillText((L.stacksNeeded - L.stacksDone)+' to go — start a fresh stack!', W/2, H*0.5+34); }
+      ctx.textAlign='left';
+    }
 
     if(L.result){
       ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,W,H);
