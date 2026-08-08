@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💩 Combat Wombat: Campaign 💩</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:#3a7d34; font-family:"Comic Sans MS","Chalkboard SE","Comic Neue",cursive,sans-serif;
+    overflow:hidden; -webkit-user-select:none; user-select:none; touch-action:none; }
+  #wrap { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  canvas { background:#bfe6ff; box-shadow:0 10px 40px rgba(0,0,0,.35); border-radius:12px;
+    max-width:100%; max-height:100%; cursor:pointer; }
+  #hint { position:absolute; bottom:8px; left:0; right:0; text-align:center; color:#eaffe0; font-size:13px;
+    text-shadow:0 1px 2px rgba(0,0,0,.4); pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="game" width="720" height="960"></canvas></div>
+<div id="hint">Campaign mode — tap a spot on the map to travel &amp; stack. Attract mates for buffs, fend off rivals to keep them at bay!</div>
+<script>
+(() => {
+  const cv = document.getElementById('game');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  let t = 0;
+
+  // =====================================================================
+  //  CAMPAIGN STATE
+  // =====================================================================
+  const MODE = { INTRO:0, OVERWORLD:1, TRAVEL:2, LEVEL:3, RESULT:4, WIN:5, LOSE:6 };
+  let mode = MODE.INTRO;
+
+  const CHARM_GOAL = 100;   // attract enough mates to win the season
+  const THREAT_MAX = 100;   // rivals overrun your territory -> lose
+
+  const player = { charm: 0, threat: 0, day: 1, buffs: [], debuffs: [] };
+
+  // buff / debuff catalogue — each modifies the next stacking challenges
+  const BUFFS = [
+    { key:'wide',  icon:'🧡', name:'Charmer',    desc:'Wider catch platform' },
+    { key:'slow',  icon:'🐌', name:'Slowpoke',   desc:'Plops fall slower' },
+    { key:'tp',    icon:'🧻', name:'Stocked Up', desc:'+1 toilet paper' },
+    { key:'steady',icon:'🎯', name:'Steady Paws',desc:'Tower topples less easily' },
+  ];
+  const DEBUFFS = [
+    { key:'narrow',icon:'😤', name:'Trampled',   desc:'Narrower catch platform' },
+    { key:'fast',  icon:'⚡', name:'Rattled',    desc:'Plops fall faster' },
+    { key:'lesstp',icon:'💔', name:'Shaken',     desc:'-1 toilet paper' },
+    { key:'dizzy', icon:'🌀', name:'Dizzy',      desc:'Tower topples more easily' },
+  ];
+
+  // resolve current effective challenge parameters from active buffs/debuffs
+  function effectiveParams(baseTarget){
+    let platW = 150, fallMul = 1, maxMiss = 3, margin = 30;
+    const has = (arr,k)=>arr.includes(k);
+    if(has(player.buffs,'wide'))   platW += 40;
+    if(has(player.debuffs,'narrow'))platW -= 40;
+    if(has(player.buffs,'slow'))   fallMul *= 0.7;
+    if(has(player.debuffs,'fast')) fallMul *= 1.4;
+    if(has(player.buffs,'tp'))     maxMiss += 1;
+    if(has(player.debuffs,'lesstp'))maxMiss -= 1;
+    if(has(player.buffs,'steady')) margin += 22;
+    if(has(player.debuffs,'dizzy'))margin -= 18;
+    return {
+      platW: clamp(platW, 70, 240),
+      fallMul: clamp(fallMul, 0.5, 2),
+      maxMiss: clamp(maxMiss, 1, 6),
+      margin: clamp(margin, 8, 70),
+      target: baseTarget
+    };
+  }
+
+  const clamp = (v,a,b)=> v<a?a:v>b?b:v;
+  const rand  = (a,b)=> a + Math.random()*(b-a);
+
+  // =====================================================================
+  //  OVERWORLD MAP
+  // =====================================================================
+  let nodes = [];      // {x,y,type,name,target,state:'open'|'done'|'lost',rivalTimer}
+  let homeNode = null;
+  let womb = { x: W/2, y: H*0.78, dir: 1, bob: 0 };   // player wombat avatar
+  let travel = null;   // {node, from, tprogress}
+  let toast = null;    // transient overworld message {text, life}
+
+  const MATE_NAMES  = ['Wanda','Winnie','Wendy','Willa'];
+  const RIVAL_NAMES = ['Bruiser','Chomps','Tank','Grunt'];
+
+  function buildMap(){
+    nodes = [];
+    homeNode = { x: W/2, y: H*0.80, type:'home', name:'Burrow', state:'open' };
+    nodes.push(homeNode);
+    // scatter mate + rival spots around the habitat
+    const spots = [
+      { x: W*0.22, y: H*0.30, type:'mate' },
+      { x: W*0.74, y: H*0.24, type:'rival' },
+      { x: W*0.80, y: H*0.52, type:'mate' },
+      { x: W*0.18, y: H*0.56, type:'rival' },
+      { x: W*0.50, y: H*0.16, type:'mate' },
+      { x: W*0.46, y: H*0.46, type:'rival' },
+    ];
+    let mi=0, ri=0;
+    for(const s of spots){
+      if(s.type==='mate'){
+        nodes.push({ x:s.x, y:s.y, type:'mate', name:MATE_NAMES[mi++%MATE_NAMES.length],
+          target: 5 + (mi%2), state:'open' });
+      } else {
+        nodes.push({ x:s.x, y:s.y, type:'rival', name:RIVAL_NAMES[ri++%RIVAL_NAMES.length],
+          target: 7 + (ri%2), state:'open', rivalTimer: 0 });
+      }
+    }
+    womb.x = homeNode.x; womb.y = homeNode.y - 4;
+  }
+
+  // rivals encroach a little every day they are left un-fended
+  function advanceDay(){
+    player.day++;
+    let encroached = 0;
+    for(const n of nodes){
+      if(n.type==='rival' && n.state!=='done'){
+        player.threat = clamp(player.threat + 7, 0, THREAT_MAX);
+        encroached++;
+      }
+    }
+    if(encroached) showToast('Rivals encroached! +'+(encroached*7)+' threat');
+    if(player.threat >= THREAT_MAX) mode = MODE.LOSE;
+    else if(player.charm >= CHARM_GOAL) mode = MODE.WIN;
+  }
+
+  function showToast(text){ toast = { text, life: 150 }; }
+
+  // =====================================================================
+  //  STACKING LEVEL  (compact; swappable for the full endless engine)
+  //  startLevel(node) -> plays a challenge -> endLevel(success)
+  // =====================================================================
+  let L = null;
+
+  function startLevel(node){
+    const p = effectiveParams(node.target);
+    L = {
+      node,
+      platX: W/2, platW: p.platW, platY: H - 120,
+      fallMul: p.fallMul, maxMiss: p.maxMiss, margin: p.margin, target: p.target,
+      cubes: [], plops: [], misses: 0,
+      towerTop: H - 120 - 13,           // world y of the top of the tower (starts at platform)
+      comx: W/2, sway: 0, swayV: 0,
+      wombatX: W/2, wombatDir: 1, wombatCrawl: 0, strain: 0,
+      spawnT: t + 40, result: null, resultT: 0,
+      shake: 0, goalY: (H - 120) - (node.target*46) - 20   // reach this line to win
+    };
+    mode = MODE.LEVEL;
+  }
+
+  function levelSpawn(){
+    const size = rand(32, 50);
+    L.plops.push({ x: L.wombatX, y: 150, w:size, h:size, vx: rand(-0.3,0.3), vy: rand(0.4,0.9), rot: rand(-0.1,0.1) });
+  }
+
+  function levelTowerTopY(){
+    let y = L.platY - 13;                // platform top
+    for(const c of L.cubes) y -= c.h;
+    return y;
+  }
+
+  function levelCatch(p){
+    const supportOff = L.cubes.length ? L.cubes[L.cubes.length-1].off : 0;
+    const supportX = L.platX + supportOff;
+    const supportW = L.cubes.length ? L.cubes[L.cubes.length-1].w : L.platW;
+    let rel = p.x - supportX;
+    rel = clamp(rel, -supportW*0.5, supportW*0.5);
+    const top = levelTowerTopY();
+    L.cubes.push({ off: supportOff + rel, y: top - p.h/2, w:p.w, h:p.h, hue: rand(-8,8), squish: 1.3 });
+    L.shake = 6;
+  }
+
+  function updateLevel(){
+    if(L.result){ // brief pause on the result before returning
+      L.resultT++;
+      if(L.shake>0) L.shake*=0.85;
+      if(L.resultT > 70) endLevel(L.result === 'win');
+      return;
+    }
+    if(L.shake>0) L.shake *= 0.85;
+
+    // move platform (keys / pointer)
+    let dir = 0;
+    if(keys['arrowleft']||keys['a']) dir -= 1;
+    if(keys['arrowright']||keys['d']) dir += 1;
+    if(dir){ L.platX += dir*9; pointerX = null; }
+    else if(pointerX !== null) L.platX += (pointerX - L.platX)*0.35;
+    L.platX = clamp(L.platX, L.platW/2, W - L.platW/2);
+
+    // wombat crawls & poops
+    L.wombatCrawl += 0.18;
+    L.wombatX += L.wombatDir * 1.6;
+    if(L.wombatX < 110){ L.wombatX=110; L.wombatDir=1; }
+    if(L.wombatX > W-110){ L.wombatX=W-110; L.wombatDir=-1; }
+    if(Math.random()<0.01) L.wombatDir *= -1;
+    L.strain += (0 - L.strain)*0.1;
+    if(t >= L.spawnT){ levelSpawn(); L.strain = 1; L.spawnT = t + Math.round(70 + rand(-15,40)); }
+
+    // falling plops
+    for(let i=L.plops.length-1;i>=0;i--){
+      const p = L.plops[i];
+      p.vy += 0.16 * L.fallMul; p.x += p.vx; p.y += p.vy; p.rot += 0.02;
+      const landY = levelTowerTopY() - p.h/2;
+      const supportX = L.platX + (L.cubes.length ? L.cubes[L.cubes.length-1].off : 0);
+      const supportW = L.cubes.length ? L.cubes[L.cubes.length-1].w : L.platW;
+      if(p.y >= landY && p.vy > 0){
+        if(Math.abs(p.x - supportX) < supportW/2 + p.w*0.2){ levelCatch(p); L.plops.splice(i,1); continue; }
+      }
+      if(p.y - p.h/2 > H){
+        L.plops.splice(i,1); L.misses++; L.shake = 10;
+        if(L.misses >= L.maxMiss){ L.result='lose'; L.resultT=0; }
+        continue;
+      }
+    }
+
+    // tower centre of mass + gentle wobble; topple if it leaves the platform
+    if(L.cubes.length){
+      let m=0,mx=0; for(const c of L.cubes){ const w=c.w*c.h; m+=w; mx+=w*(L.platX+c.off); }
+      L.comx = mx/m;
+      const off = L.comx - L.platX;
+      L.swayV += Math.sin(t*0.09)*Math.min(L.cubes.length/6,1)*0.02;
+      L.swayV -= L.sway*0.05; L.swayV *= 0.92; L.sway += L.swayV;
+      for(const c of L.cubes) c.squish += (1-c.squish)*0.18;
+      if(Math.abs(off) > L.platW/2 + L.margin){ L.result='lose'; L.resultT=0; L.shake=16; }
+      // reached the goal line -> success
+      if(levelTowerTopY() <= L.goalY){ L.result='win'; L.resultT=0; }
+    }
+  }
+
+  function endLevel(success){
+    const node = L.node;
+    if(node.type === 'mate'){
+      if(success){
+        player.charm = clamp(player.charm + 22, 0, CHARM_GOAL);
+        const b = grantRandom(BUFFS, player.buffs);
+        node.state = 'done';
+        showToast(node.name + ' is smitten! +22 charm' + (b?'  ·  buff: '+b.icon+' '+b.name:''));
+      } else {
+        showToast(node.name + ' was unimpressed…');
+      }
+    } else { // rival
+      if(success){
+        player.threat = clamp(player.threat - 18, 0, THREAT_MAX);
+        node.state = 'done';
+        showToast('You out-stacked ' + node.name + '! -18 threat');
+      } else {
+        player.threat = clamp(player.threat + 12, 0, THREAT_MAX);
+        const d = grantRandom(DEBUFFS, player.debuffs);
+        showToast(node.name + ' bullied you! +12 threat' + (d?'  ·  debuff: '+d.icon+' '+d.name:''));
+      }
+    }
+    L = null;
+    advanceDay();
+    if(mode === MODE.LEVEL) mode = MODE.OVERWORLD;   // (advanceDay may flip to WIN/LOSE)
+  }
+
+  function grantRandom(pool, list){
+    const avail = pool.filter(b => !list.includes(b.key));
+    if(!avail.length) return null;
+    const b = avail[(Math.random()*avail.length)|0];
+    list.push(b.key);
+    // gaining a buff can clear a debuff and vice-versa (keeps it swingy)
+    return b;
+  }
+
+  // =====================================================================
+  //  DRAWING HELPERS
+  // =====================================================================
+  function roundRect(x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+  // a compact cute wombat. mood: 'happy'|'angry'|'love'|'plain'
+  function drawWombat(x,y,s,mood,strain){
+    ctx.save(); ctx.translate(x,y); ctx.scale(s,s);
+    const sq = 1 + (strain||0)*0.12; ctx.scale(1+(strain||0)*0.05, sq);
+    // ears
+    ctx.fillStyle='#7a5c44'; ctx.beginPath(); ctx.arc(-30,-32,13,0,7); ctx.arc(30,-32,13,0,7); ctx.fill();
+    ctx.fillStyle='#c39b7d'; ctx.beginPath(); ctx.arc(-30,-32,6,0,7); ctx.arc(30,-32,6,0,7); ctx.fill();
+    // body/head
+    ctx.fillStyle='#8a6a4f'; roundRect(-44,-34,88,70,30); ctx.fill();
+    ctx.fillStyle='#a88465'; roundRect(-30,-12,60,44,22); ctx.fill();
+    // combat headband
+    ctx.fillStyle='#3d6b2e'; roundRect(-46,-30,92,11,5); ctx.fill();
+    ctx.fillStyle='#e74c3c'; ctx.beginPath(); ctx.arc(0,-24,5,0,7); ctx.fill();
+    // eyes
+    for(const ex of [-16,16]){
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(ex,-8,8,0,7); ctx.fill();
+      ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(ex,-8 + (strain>0.3?2:0),4,0,7); ctx.fill();
+    }
+    if(mood==='angry'){
+      ctx.strokeStyle='#4a3220'; ctx.lineWidth=4; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(-24,-18); ctx.lineTo(-8,-12); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(24,-18); ctx.lineTo(8,-12); ctx.stroke();
+    }
+    // nose + mouth
+    ctx.fillStyle='#4a3220'; roundRect(-7,-2,14,9,4); ctx.fill();
+    ctx.strokeStyle='#4a3220'; ctx.lineWidth=3; ctx.lineCap='round'; ctx.beginPath();
+    if(mood==='angry' || strain>0.3) ctx.arc(0,14,7,1.1*Math.PI,1.9*Math.PI);
+    else ctx.arc(0,8,9,0.15*Math.PI,0.85*Math.PI);
+    ctx.stroke();
+    // feet
+    ctx.fillStyle='#6b4f3a'; ctx.beginPath(); ctx.arc(-20,36,9,0,7); ctx.arc(20,36,9,0,7); ctx.fill();
+    ctx.restore();
+    if(mood==='love'){
+      ctx.font='20px serif'; ctx.fillText('💗', x+22, y-30); ctx.fillText('💗', x-40, y-24);
+    }
+  }
+
+  function drawPoopCube(x,y,w,h,rot,squish,hue){
+    ctx.save(); ctx.translate(x,y); ctx.rotate(rot||0);
+    const bw=w, bh=h*(squish||1);
+    const g=ctx.createLinearGradient(0,-bh/2,0,bh/2);
+    g.addColorStop(0,`hsl(${28+(hue||0)},55%,42%)`); g.addColorStop(1,`hsl(${28+(hue||0)},55%,28%)`);
+    ctx.fillStyle=g; roundRect(-bw/2,-bh/2,bw,bh,Math.min(bw,bh)*0.28); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.2)'; roundRect(-bw/2+bw*0.14,-bh/2+bh*0.12,bw*0.32,bh*0.2,5); ctx.fill();
+    ctx.restore();
+  }
+
+  function meter(x,y,w,h,frac,col,label){
+    ctx.fillStyle='rgba(255,255,255,.55)'; roundRect(x,y,w,h,h/2); ctx.fill();
+    ctx.save(); roundRect(x,y,w,h,h/2); ctx.clip();
+    ctx.fillStyle=col; roundRect(x,y,Math.max(h,w*clamp(frac,0,1)),h,h/2); ctx.fill(); ctx.restore();
+    ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=2; roundRect(x,y,w,h,h/2); ctx.stroke();
+    ctx.fillStyle='#2d3a12'; ctx.font='bold 15px "Comic Sans MS",cursive'; ctx.textAlign='left';
+    ctx.fillText(label, x+2, y-4);
+  }
+
+  // =====================================================================
+  //  RENDER
+  // =====================================================================
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    if(mode===MODE.INTRO) drawIntro();
+    else if(mode===MODE.LEVEL) drawLevel();
+    else { drawOverworld(); if(mode===MODE.WIN) drawBanner('🏆 Season won! Your charm reigns.','#ffe14d');
+           if(mode===MODE.LOSE) drawBanner('💀 Rivals took your territory.','#ff8a8a'); }
+  }
+
+  function drawSky(){ const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#9fd8ff'); g.addColorStop(1,'#d8f0ff'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H); }
+
+  function drawIntro(){
+    drawSky();
+    ctx.fillStyle='#6ab04c'; ctx.fillRect(0,H*0.6,W,H*0.4);
+    drawWombat(W/2, H*0.6, 1.8, 'happy', 0);
+    ctx.textAlign='center';
+    ctx.fillStyle='#3a2410'; ctx.font='bold 46px "Comic Sans MS",cursive'; ctx.fillText('COMBAT WOMBAT', W/2, 150);
+    ctx.fillStyle='#7a3d12'; ctx.font='bold 30px "Comic Sans MS",cursive'; ctx.fillText('· Campaign ·', W/2, 195);
+    ctx.fillStyle='#2d3a12'; ctx.font='20px "Comic Sans MS",cursive';
+    const lines=[
+      'Roam your habitat and stack poop towers.',
+      '💗 Attract mates → charm + a buff.',
+      '😤 Fend off rivals → keep the threat down.',
+      'Rivals encroach each day you ignore them!',
+      'Fill charm before rivals overrun you.'
+    ];
+    lines.forEach((l,i)=> ctx.fillText(l, W/2, 260 + i*34));
+    ctx.fillStyle='#e0492b'; ctx.font='bold 26px "Comic Sans MS",cursive';
+    ctx.fillText('▶ Tap to begin', W/2, H*0.82 + Math.sin(t*0.1)*3);
+  }
+
+  function drawOverworld(){
+    drawSky();
+    // habitat ground
+    ctx.fillStyle='#6ab04c'; ctx.fillRect(0,H*0.12,W,H);
+    ctx.fillStyle='#5aa040';
+    for(let i=0;i<40;i++){ const gx=(i*61+ (i*i*13)%50); const gy=H*0.12 + (i*97 % (H*0.85));
+      ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+7,gy-14); ctx.lineTo(gx+14,gy); ctx.fill(); }
+    // decorative trees / pond
+    drawTree(70, H*0.20); drawTree(W-80, H*0.40); drawTree(W*0.6, H*0.66);
+    ctx.fillStyle='#7ec8ff'; ctx.beginPath(); ctx.ellipse(W*0.32,H*0.70,70,34,0,0,7); ctx.fill();
+
+    // paths from home to every spot
+    ctx.strokeStyle='rgba(120,85,45,.5)'; ctx.lineWidth=8; ctx.setLineDash([2,14]); ctx.lineCap='round';
+    for(const n of nodes){ if(n===homeNode) continue;
+      ctx.beginPath(); ctx.moveTo(homeNode.x,homeNode.y); ctx.lineTo(n.x,n.y); ctx.stroke(); }
+    ctx.setLineDash([]);
+
+    // nodes
+    for(const n of nodes) drawNode(n);
+    // player wombat avatar
+    womb.bob = Math.sin(t*0.12)*2;
+    drawWombat(womb.x, womb.y - 20 + womb.bob, 0.7, 'happy', 0);
+    if(travel){ /* moving dot handled in update */ }
+
+    drawOverworldHUD();
+    if(toast){ ctx.globalAlpha = clamp(toast.life/40,0,1);
+      ctx.fillStyle='rgba(0,0,0,.7)'; roundRect(W/2-300,H*0.9-22,600,40,10); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.font='bold 17px "Comic Sans MS",cursive'; ctx.textAlign='center';
+      ctx.fillText(toast.text, W/2, H*0.9+4); ctx.globalAlpha=1; }
+  }
+
+  function drawTree(x,y){ ctx.fillStyle='#7a5230'; ctx.fillRect(x-7,y,14,46);
+    ctx.fillStyle='#3f8f3a'; ctx.beginPath(); ctx.arc(x,y-6,30,0,7); ctx.arc(x-22,y+6,20,0,7); ctx.arc(x+22,y+6,20,0,7); ctx.fill(); }
+
+  function drawNode(n){
+    if(n.type==='home'){
+      ctx.fillStyle='#6b4a2c'; ctx.beginPath(); ctx.arc(n.x,n.y,34,Math.PI,0); ctx.fill();
+      ctx.fillStyle='#2e1f12'; ctx.beginPath(); ctx.arc(n.x,n.y,18,Math.PI,0); ctx.fill();
+      ctx.fillStyle='#3a2410'; ctx.font='bold 15px "Comic Sans MS",cursive'; ctx.textAlign='center';
+      ctx.fillText('🏠 Burrow', n.x, n.y+22); return;
+    }
+    const done = n.state==='done';
+    ctx.save(); ctx.globalAlpha = done? 0.5 : 1;
+    // marker circle
+    ctx.fillStyle = n.type==='mate' ? '#ff9ec7' : '#e06a4a';
+    ctx.beginPath(); ctx.arc(n.x, n.y, 30 + (done?0:Math.sin(t*0.15+n.x)*2), 0, 7); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke();
+    drawWombat(n.x, n.y-2, 0.5, n.type==='mate'?'love':'angry', 0);
+    ctx.restore();
+    ctx.fillStyle= done ? '#3a5a2a' : (n.type==='mate'?'#a12a63':'#8a2a12');
+    ctx.font='bold 16px "Comic Sans MS",cursive'; ctx.textAlign='center';
+    ctx.fillText((n.type==='mate'?'💗 ':'😤 ')+n.name, n.x, n.y+46);
+    ctx.fillStyle='#333'; ctx.font='13px "Comic Sans MS",cursive';
+    ctx.fillText(done? 'done' : ('stack '+n.target), n.x, n.y+62);
+  }
+
+  function drawOverworldHUD(){
+    ctx.fillStyle='rgba(255,255,255,.75)'; roundRect(10,10,W-20,58,12); ctx.fill();
+    meter(20, 34, 300, 18, player.charm/CHARM_GOAL, '#ff6fae', '💗 Charm '+player.charm+'/'+CHARM_GOAL);
+    meter(W-320, 34, 300, 18, player.threat/THREAT_MAX, '#e0492b', '😤 Threat '+player.threat+'/'+THREAT_MAX);
+    ctx.fillStyle='#2d3a12'; ctx.font='bold 15px "Comic Sans MS",cursive'; ctx.textAlign='center';
+    ctx.fillText('Day '+player.day, W/2, 24);
+    // active buffs / debuffs strip
+    ctx.textAlign='left'; ctx.font='20px serif'; let bx=20;
+    for(const k of player.buffs){ const b=BUFFS.find(x=>x.key===k); ctx.fillText(b.icon, bx, H-16); bx+=26; }
+    ctx.textAlign='right'; let dx=W-20;
+    for(const k of player.debuffs){ const d=DEBUFFS.find(x=>x.key===k); ctx.fillText(d.icon, dx, H-16); dx-=26; }
+    ctx.textAlign='left';
+  }
+
+  function drawLevel(){
+    drawSky();
+    const sx=(Math.random()-0.5)*L.shake, sy=(Math.random()-0.5)*L.shake;
+    ctx.save(); ctx.translate(sx,sy);
+    // ground
+    ctx.fillStyle='#6ab04c'; ctx.fillRect(0,H-70,W,70);
+    // goal line
+    ctx.setLineDash([18,12]); ctx.lineDashOffset=-(t*0.6%30); ctx.strokeStyle='#e23b2e'; ctx.lineWidth=4;
+    ctx.globalAlpha=0.8+Math.sin(t*0.14)*0.2; ctx.beginPath(); ctx.moveTo(0,L.goalY); ctx.lineTo(W,L.goalY); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+    ctx.fillStyle='#e23b2e'; ctx.font='bold 18px "Comic Sans MS",cursive'; ctx.textAlign='right';
+    ctx.fillText('🎯 GOAL', W-12, L.goalY-8); ctx.textAlign='left';
+
+    // catch platform
+    ctx.save(); ctx.translate(L.platX, L.platY);
+    ctx.fillStyle='#7a5230'; ctx.fillRect(-7,13,14,H);
+    const g=ctx.createLinearGradient(0,-13,0,13); g.addColorStop(0,'#c98b4a'); g.addColorStop(1,'#9c6531');
+    ctx.fillStyle=g; roundRect(-L.platW/2,-13,L.platW,26,10); ctx.fill();
+    ctx.strokeStyle='#6f451f'; ctx.lineWidth=3; ctx.stroke(); ctx.restore();
+
+    // tower (with a gentle lean)
+    for(const c of L.cubes){
+      const above = Math.max(0, (L.platY-13) - (c.y + c.h/2));
+      const dx = clamp(L.sway,-0.4,0.4) * above * 0.5;
+      drawPoopCube(L.platX + c.off + dx, c.y, c.w, c.h, 0, c.squish, c.hue);
+    }
+    // falling plops
+    for(const p of L.plops) drawPoopCube(p.x, p.y, p.w, p.h, p.rot, 1, 0);
+
+    // pooping wombat on a rail at the top
+    ctx.fillStyle='#9c6531'; ctx.fillRect(60,120,W-120,14);
+    drawWombat(L.wombatX, 96, 0.85, 'plain', L.strain);
+    ctx.restore();
+
+    // HUD
+    ctx.fillStyle='#2d5016'; ctx.font='bold 26px "Comic Sans MS",cursive'; ctx.textAlign='left';
+    ctx.fillText((L.node.type==='mate'?'💗 Impress ':'😤 Out-stack ')+L.node.name, 16, 40);
+    ctx.font='18px "Comic Sans MS",cursive';
+    ctx.fillText('height '+L.cubes.length+' / '+L.target, 16, 66);
+    // toilet paper lives
+    ctx.textAlign='right'; ctx.font='24px serif'; let s='';
+    for(let i=0;i<L.maxMiss;i++) s += i<L.maxMiss-L.misses ? '🧻' : '❌';
+    ctx.fillText(s, W-14, 44); ctx.textAlign='left';
+
+    if(L.result){
+      ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,W,H);
+      ctx.textAlign='center';
+      const win = L.result==='win';
+      ctx.fillStyle = win?'#7bed9f':'#ff8a8a'; ctx.font='bold 44px "Comic Sans MS",cursive';
+      ctx.fillText(win? (L.node.type==='mate'?'💗 Impressed!':'😤 Fended off!') : '🗼 Failed!', W/2, H/2-10);
+      ctx.fillStyle='#fff'; ctx.font='20px "Comic Sans MS",cursive';
+      ctx.fillText(win?'Well stacked!':'The tower didn\'t hold…', W/2, H/2+28);
+      ctx.textAlign='left';
+    }
+  }
+
+  function drawBanner(text,col){
+    ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center'; ctx.fillStyle=col; ctx.font='bold 40px "Comic Sans MS",cursive';
+    ctx.fillText(text, W/2, H/2-10);
+    ctx.fillStyle='#fff'; ctx.font='22px "Comic Sans MS",cursive';
+    ctx.fillText('Day '+player.day+'  ·  💗 '+player.charm+'   😤 '+player.threat, W/2, H/2+30);
+    ctx.fillText('▶ Tap to play again', W/2, H/2+70); ctx.textAlign='left';
+  }
+
+  // =====================================================================
+  //  UPDATE
+  // =====================================================================
+  function update(){
+    t++;
+    if(toast){ toast.life--; if(toast.life<=0) toast=null; }
+    if(mode===MODE.TRAVEL){
+      travel.p += 0.04;
+      womb.x = travel.fromX + (travel.node.x - travel.fromX)*travel.p;
+      womb.y = (travel.fromY-20) + ((travel.node.y-20) - (travel.fromY-20))*travel.p - Math.sin(travel.p*Math.PI)*30;
+      womb.dir = travel.node.x > travel.fromX ? 1 : -1;
+      if(travel.p >= 1){ const node = travel.node; travel=null; startLevel(node); }
+    }
+    else if(mode===MODE.LEVEL && L) updateLevel();
+  }
+
+  // =====================================================================
+  //  INPUT
+  // =====================================================================
+  const keys = {}; let pointerX = null;
+  window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()]=true;
+    if([' ','arrowleft','arrowright'].includes(e.key.toLowerCase())) e.preventDefault(); });
+  window.addEventListener('keyup', e=> keys[e.key.toLowerCase()]=false);
+
+  function canvasPt(clientX, clientY){ const r=cv.getBoundingClientRect();
+    return { x:(clientX-r.left)*(W/r.width), y:(clientY-r.top)*(H/r.height) }; }
+
+  function onDown(px,py){
+    if(mode===MODE.INTRO){ buildMap(); mode=MODE.OVERWORLD; return; }
+    if(mode===MODE.WIN || mode===MODE.LOSE){ player.charm=0; player.threat=0; player.day=1; player.buffs=[]; player.debuffs=[]; buildMap(); mode=MODE.OVERWORLD; return; }
+    if(mode===MODE.OVERWORLD){
+      for(const n of nodes){ if(n.type==='home'||n.state==='done') continue;
+        if(Math.hypot(px-n.x, py-n.y) < 42){
+          travel = { node:n, fromX:womb.x, fromY:homeNode.y, p:0 }; mode=MODE.TRAVEL; return;
+        }
+      }
+    }
+  }
+
+  cv.addEventListener('mousedown', e=>{ const p=canvasPt(e.clientX,e.clientY); pointerX=p.x; onDown(p.x,p.y); });
+  cv.addEventListener('mousemove', e=>{ if(mode===MODE.LEVEL){ const p=canvasPt(e.clientX,e.clientY); pointerX=p.x; } });
+  cv.addEventListener('mouseleave', ()=> pointerX=null);
+  cv.addEventListener('touchstart', e=>{ const tt=e.touches[0]; const p=canvasPt(tt.clientX,tt.clientY); pointerX=p.x; onDown(p.x,p.y); e.preventDefault(); }, {passive:false});
+  cv.addEventListener('touchmove', e=>{ const tt=e.touches[0]; const p=canvasPt(tt.clientX,tt.clientY); if(mode===MODE.LEVEL) pointerX=p.x; e.preventDefault(); }, {passive:false});
+
+  function loop(){ update(); render(); requestAnimationFrame(loop); }
+  buildMap();
+  loop();
+})();
+</script>
+</body>
+</html>
