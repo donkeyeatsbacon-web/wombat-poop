@@ -595,13 +595,6 @@
   function loop(){ update(); render(); requestAnimationFrame(loop); }
   buildMap();
   loop();
-  window.__step  = (n=1)=>{ for(let i=0;i<n;i++){ update(); render(); } };
-  window.__click = (x,y)=> onDown(x,y);
-  window.__pointer = (x)=>{ pointerX = x; };
-  window.__lowPlop = ()=>{ if(!L||!L.plops.length) return null; let lo=L.plops[0]; for(const p of L.plops) if(p.y>lo.y) lo=p; return Math.round(lo.x); };
-  window.__state = ()=>({ mode, charm:player.charm, threat:player.threat, day:player.day,
-    nodes: nodes.map(n=>({type:n.type,name:n.name,state:n.state,x:Math.round(n.x),y:Math.round(n.y),target:n.target,stacks:n.stacks})),
-    level: L? { cubes:L.cubes.length, misses:L.misses, target:L.target, result:L.result, banking:L.banking, stacksDone:L.stacksDone, stacksNeeded:L.stacksNeeded } : null });
 })();
 </script>
 </body>
