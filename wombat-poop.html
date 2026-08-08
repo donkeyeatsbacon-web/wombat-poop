@@ -476,8 +476,7 @@
       if(p.y + camOffset - p.h/2 <= H) allGone = false;
     }
     if(toppleTimer > 240 || allGone){
-      state = STATE.OVER;
-      best = Math.max(best, score);
+      endGame();
     }
   }
 

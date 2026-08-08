@@ -88,7 +88,7 @@
   const RIVAL_NAMES = ['Bruiser','Chomps','Tank','Grunt'];
 
   function buildMap(){
-    nodes = [];
+    nodes = []; wave = 0;
     homeNode = { x: W/2, y: H*0.80, type:'home', name:'Burrow', state:'open' };
     nodes.push(homeNode);
     // scatter mate + rival spots around the habitat
