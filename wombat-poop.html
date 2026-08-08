@@ -628,9 +628,10 @@
             if(p.stuck > 1) p.vy = Math.max(p.vy, 1.4);          // guarantee it drops away fast
           }
         } else { p.settle = 0; p.stuck = 0; }
-        // fell past the bottom of the screen -> miss
+        // fell past the bottom of the screen
         if(p.y + camOffset - p.h/2 > H){
           plops.splice(i,1);
+          if(p.collapsed){ continue; }   // knocked loose by diarrhea, not a real miss
           misses++;
           splat(p.x, H-6);
           shake = Math.min(shake+6, 14);
