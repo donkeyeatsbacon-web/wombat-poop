@@ -298,12 +298,14 @@
   // out of any overlap (rest on tops, stop against sides) so it never passes
   // through anything. Returns true if it's resting on something from above.
   function collideFallingPoop(p){
-    let resting = false;
+    let resting = false, pushedL = false, pushedR = false, wedgeTop = Infinity;
+    let gapL = -Infinity, gapR = Infinity;
     const hit = (ox, oy, ow, oh) => {
       const dx = p.x - ox, dy = p.y - oy;
       const px = (p.w/2 + ow/2) - Math.abs(dx);
       const py = (p.h/2 + oh/2) - Math.abs(dy);
       if(px <= 0 || py <= 0) return;
+      p._touched = true;
       // only "land on top" when the poop's centre is actually over this object;
       // a poop merely grazing a top corner gets shoved off so it keeps falling
       const centreOver = Math.abs(dx) <= ow/2 + p.w*0.1;
@@ -316,8 +318,10 @@
           resting = true;
         } else { p.y += py; if(p.vy < 0) p.vy = 0; }
       } else {                                      // side / corner contact — shove off, don't perch
-        if(dx < 0) p.x -= px; else p.x += px;
+        if(dx < 0){ p.x -= px; pushedL = true; gapR = Math.min(gapR, ox - ow/2); }
+        else       { p.x += px; pushedR = true; gapL = Math.max(gapL, ox + ow/2); }
         p.vx = (dx < 0 ? -1 : 1) * Math.max(Math.abs(p.vx)*0.3, 0.6);
+        wedgeTop = Math.min(wedgeTop, oy - oh/2);
       }
     };
     hit(plat.x, plat.y, plat.w, plat.h);
@@ -325,6 +329,12 @@
       if(Math.abs(c.y - p.y) < 220 && Math.abs((plat.x + c.off) - p.x) < 200){
         hit(plat.x + c.off, c.y, c.w, c.h);
       }
+    }
+    // squeezed from both sides — too fat for that gap, so it rides on top,
+    // centred between its neighbours instead of jittering between them
+    if(pushedL && pushedR && isFinite(wedgeTop)){
+      if(isFinite(gapL) && isFinite(gapR)) p.x = (gapL + gapR) / 2;
+      p.y = wedgeTop - p.h/2; p.vy = 0; p.vx = 0; resting = true;
     }
     return resting;
   }
@@ -689,7 +699,18 @@
         p.squish += (1 - p.squish)*0.2;
 
         // collide with the platform and stacked poops (rest on tops, stop on sides)
+        p._touched = false;
         const resting = collideFallingPoop(p);
+        // sustained contact without settling means it's jammed in an awkward gap —
+        // park it on top of whatever is under it so it can never jitter forever
+        p.contact = p._touched ? (p.contact||0) + 1 : Math.max(0, (p.contact||0) - 2);
+        if(p.contact > 40){
+          const top = supportHeightAt(p.x);   // must be supported under its centre
+          if(isFinite(top)){
+            p.y = top - p.h/2; p.vx = 0; p.vy = 0;
+            settlePoop(p); plops.splice(i,1); continue;
+          }
+        }
 
         // decide whether it can settle where it landed
         if(resting && Math.abs(p.vy) < 0.6 && Math.abs(p.vx) < 0.6){
