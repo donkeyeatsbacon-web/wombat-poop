@@ -12,8 +12,8 @@
 <body>
 <div id="wrap"><canvas id="game" width="720" height="960"></canvas></div>
 <div id="hint">Campaign — tap a spot to travel &amp; stack &nbsp;·&nbsp; ← → / A D / finger to move the platform</div>
-<script src="shared/core.js?v=19ed8865"></script>
-<script src="shared/art.js?v=9073bb2e"></script>
+<script src="shared/core.js?v=c6ad66ef"></script>
+<script src="shared/art.js?v=7e58af87"></script>
 <script src="shared/physics.js?v=e4bbda1b"></script>
 <script src="shared/wombat.js?v=161c4e3d"></script>
 <script>
@@ -23,7 +23,7 @@
   const ctx = cv.getContext('2d');
   const disp = WB.fitDisplay(cv, document.getElementById('wrap'));
   let t = 0;
-  const { roundRect, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
+  const { roundRect, drawButton, drawRoundButton, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
           drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine } = WB.createArt(ctx, () => t);
   const { PAL_PLAYER, PAL_RIVAL, PAL_MATE } = WB;
 
@@ -400,8 +400,33 @@
       if(mode===MODE.WIN)  drawBanner('🏆 Season won! Your charm reigns.','#ffe14d');
       if(mode===MODE.LOSE) drawBanner('💀 Rivals overran your territory.','#ff8a8a');
     }
+    if(paused) drawPauseMenu();
+    else if(canPause()) drawRoundButton(PAUSE_BTN, mode===MODE.LEVEL ? 'pause' : 'menu');
+    if(mode===MODE.INTRO || mode===MODE.WIN || mode===MODE.LOSE) drawButton(BTN_MENU, '◂ Menu', '#fff8e7', '#7a3d12', 22);
     ctx.restore();
   }
+
+  // ---------- Pause / menu ----------
+  // In a level the round button pauses; on the map it opens the same menu.
+  const PAUSE_BTN  = { x:W-38, y:104, r:22 };
+  const BTN_RESUME = { x:W/2-150, y:H*0.40,    w:300, h:62 };
+  const BTN_QUIT   = { x:W/2-150, y:H*0.40+80, w:300, h:62 };
+  const BTN_MENU   = { x:18, y:18, w:136, h:48 };     // intro + end-of-season screens
+  let paused = false;
+  const canPause = () => (mode===MODE.LEVEL && L && !L.result) || mode===MODE.OVERWORLD;
+
+  function drawPauseMenu(){
+    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(0,0,W,H);
+    ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.font='bold 48px "Comic Sans MS",cursive';
+    ctx.fillText(mode===MODE.LEVEL ? '⏸ Paused' : '☰ Menu', W/2, H*0.32);
+    drawButton(BTN_RESUME, '▶ Resume', '#7bed9f', '#14532d');
+    drawButton(BTN_QUIT,   '🏠 Main menu', '#fff8e7', '#7a3d12');
+    ctx.fillStyle='#fff'; ctx.font='18px "Comic Sans MS",cursive';
+    ctx.fillText(mode===MODE.LEVEL ? 'Your season is saved up to the start of today — this level will replay.'
+                                   : 'Your season is saved.', W/2, BTN_QUIT.y+BTN_QUIT.h+40);
+    ctx.textAlign='left';
+  }
+  function quitToMenu(){ saveGame(); WB.toMenu(); }
 
   function drawIntro(){
     drawSky();
@@ -431,13 +456,6 @@
 
   const BTN_CONTINUE = { x:W/2-190, y:H*0.79,    w:380, h:62 };
   const BTN_NEW      = { x:W/2-190, y:H*0.79+74, w:380, h:62 };
-  function hitBtn(b,px,py){ return px>=b.x && px<=b.x+b.w && py>=b.y && py<=b.y+b.h; }
-  function drawButton(b,label,fill,edge){
-    ctx.fillStyle=fill; ctx.strokeStyle=edge; ctx.lineWidth=4;
-    roundRect(b.x,b.y,b.w,b.h,14); ctx.fill(); ctx.stroke();
-    ctx.fillStyle=edge; ctx.font='bold 25px "Comic Sans MS",cursive'; ctx.textAlign='center';
-    ctx.fillText(label, b.x+b.w/2, b.y+b.h/2+9);
-  }
 
   function drawTree(x,y){ ctx.fillStyle='#7a5230'; ctx.fillRect(x-7,y,14,46);
     ctx.fillStyle='#3f8f3a'; ctx.beginPath(); ctx.arc(x,y-6,30,0,7); ctx.arc(x-22,y+6,20,0,7); ctx.arc(x+22,y+6,20,0,7); ctx.fill(); }
@@ -639,6 +657,7 @@
   function update(){
     t++;
     if(toast){ toast.life--; if(toast.life<=0) toast=null; }
+    if(paused) return;
     if(mode===MODE.TRAVEL){
       travel.p += 0.035;
       const e = clamp(travel.p,0,1);
@@ -653,15 +672,24 @@
 
   const input = { keys:{}, pointerX:null };
   window.addEventListener('keydown', e=>{ input.keys[e.key.toLowerCase()]=true;
-    if([' ','arrowleft','arrowright'].includes(e.key.toLowerCase())) e.preventDefault(); });
+    if([' ','arrowleft','arrowright'].includes(e.key.toLowerCase())) e.preventDefault();
+    if((e.key.toLowerCase()==='p' || e.key==='Escape') && (paused || canPause())) paused = !paused; });
   window.addEventListener('keyup', e=> input.keys[e.key.toLowerCase()]=false);
   const canvasPt = (cx,cy) => WB.canvasPt(cv, cx, cy);
   function onDown(px,py){
+    if(paused){
+      if(WB.hitBtn(BTN_RESUME,px,py)) paused = false;
+      else if(WB.hitBtn(BTN_QUIT,px,py)) quitToMenu();
+      return;
+    }
+    if(canPause() && WB.hitRound(PAUSE_BTN,px,py)){ paused = true; return; }
+    if(mode===MODE.LEVEL){ input.pointerX = px; return; }
+    if((mode===MODE.INTRO || mode===MODE.WIN || mode===MODE.LOSE) && WB.hitBtn(BTN_MENU,px,py)){ WB.toMenu(); return; }
     if(mode===MODE.INTRO){
       if(pendingSave){
         // with a save on offer the screen is a menu, so ignore taps off the buttons
-        if(hitBtn(BTN_CONTINUE,px,py)){ const d=pendingSave; pendingSave=null; restoreGame(d); }
-        else if(hitBtn(BTN_NEW,px,py)){ pendingSave=null; newGame(); }
+        if(WB.hitBtn(BTN_CONTINUE,px,py)){ const d=pendingSave; pendingSave=null; restoreGame(d); }
+        else if(WB.hitBtn(BTN_NEW,px,py)){ pendingSave=null; newGame(); }
         return;
       }
       newGame(); return;
@@ -675,11 +703,11 @@
         } }
     }
   }
-  cv.addEventListener('mousedown', e=>{ const p=canvasPt(e.clientX,e.clientY); input.pointerX=p.x; onDown(p.x,p.y); });
+  cv.addEventListener('mousedown', e=>{ const p=canvasPt(e.clientX,e.clientY); onDown(p.x,p.y); });
   cv.addEventListener('mousemove', e=>{ if(mode===MODE.LEVEL){ input.pointerX=canvasPt(e.clientX,e.clientY).x; } });
   cv.addEventListener('mouseleave', ()=> input.pointerX=null);
   cv.addEventListener('touchstart', e=>{ const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
-    input.pointerX=p.x; onDown(p.x,p.y); e.preventDefault(); }, {passive:false});
+    onDown(p.x,p.y); e.preventDefault(); }, {passive:false});
   cv.addEventListener('touchmove', e=>{ const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
     if(mode===MODE.LEVEL) input.pointerX=p.x; e.preventDefault(); }, {passive:false});
 
@@ -687,6 +715,8 @@
   // flush on the events that do fire first.
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) saveGame(); });
   window.addEventListener('pagehide', saveGame);
+  // switching away mid-level pauses it, so nothing falls while nobody's looking
+  WB.onAway(()=>{ if(mode===MODE.LEVEL && L && !L.result) paused = true; });
 
   buildMap();
   WB.runLoop(update, render);

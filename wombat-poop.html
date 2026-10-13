@@ -6,7 +6,7 @@
 <title>💩 Combat Wombat: Poop Stacker 💩</title>
 <link rel="stylesheet" href="shared/base.css?v=be0a1df0">
 <style>
-  canvas { cursor: none; image-rendering: optimizeQuality; }
+  canvas { image-rendering: optimizeQuality; }
   #hint { font-size: 14px; }
   #saveOverlay {
     position: absolute; inset: 0; z-index: 10;
@@ -51,8 +51,8 @@
     </div>
   </div>
 </div>
-<script src="shared/core.js?v=19ed8865"></script>
-<script src="shared/art.js?v=9073bb2e"></script>
+<script src="shared/core.js?v=c6ad66ef"></script>
+<script src="shared/art.js?v=7e58af87"></script>
 <script src="shared/physics.js?v=e4bbda1b"></script>
 <script src="shared/wombat.js?v=161c4e3d"></script>
 <script>
@@ -62,7 +62,7 @@
   const ctx = cv.getContext('2d');
   const disp = WB.fitDisplay(cv, document.getElementById('wrap'));
   let t = 0;
-  const { roundRect, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
+  const { roundRect, drawButton, drawRoundButton, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
           drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine } = WB.createArt(ctx, () => t);
 
   // ---------- Game state ----------
@@ -117,19 +117,43 @@
     if (entering) return;                       // typing a high-score name — ignore game controls
     input.keys[e.key.toLowerCase()] = true;
     if (e.key === ' ' || ['arrowleft','arrowright','arrowup','arrowdown'].includes(e.key.toLowerCase())) e.preventDefault();
-    if (e.key.toLowerCase() === 'p' && state === STATE.PLAY) paused = !paused;
+    if ((e.key.toLowerCase() === 'p' || e.key === 'Escape') && state === STATE.PLAY) paused = !paused;
     if ((state === STATE.MENU || state === STATE.OVER) && (e.key === ' ' || e.key === 'Enter')) start();
   });
   window.addEventListener('keyup', e => input.keys[e.key.toLowerCase()] = false);
 
+  // on-screen buttons (logical canvas units)
+  const PAUSE_BTN  = { x: W-38, y: 118, r: 22 };                  // during play, top right
+  const BTN_RESUME = { x: W/2-150, y: H*0.40,    w: 300, h: 62 }; // pause screen
+  const BTN_QUIT   = { x: W/2-150, y: H*0.40+80, w: 300, h: 62 };
+  const BTN_MENU   = { x: 18, y: 18, w: 136, h: 48 };              // title + game-over screens
+
+  function onDown(x, y){
+    if(entering) return;
+    if(state === STATE.PLAY){
+      if(paused){
+        if(WB.hitBtn(BTN_RESUME, x, y)) paused = false;
+        else if(WB.hitBtn(BTN_QUIT, x, y)) WB.toMenu();
+        return;
+      }
+      if(WB.hitRound(PAUSE_BTN, x, y)){ paused = true; return; }
+      input.pointerX = x;
+      return;
+    }
+    input.pointerX = x;
+    if((state === STATE.MENU || state === STATE.OVER) && WB.hitBtn(BTN_MENU, x, y)) WB.toMenu();
+    else start();
+  }
   const canvasX = clientX => WB.canvasPt(cv, clientX, 0).x;
   cv.addEventListener('mousemove', e => input.pointerX = canvasX(e.clientX));
-  cv.addEventListener('mousedown', e => { input.pointerX = canvasX(e.clientX); if(!entering && state!==STATE.PLAY) start(); });
-  cv.addEventListener('touchstart', e => { input.pointerX = canvasX(e.touches[0].clientX); if(!entering && state!==STATE.PLAY) start(); e.preventDefault(); }, {passive:false});
+  cv.addEventListener('mousedown', e => { const p = WB.canvasPt(cv, e.clientX, e.clientY); onDown(p.x, p.y); });
+  cv.addEventListener('touchstart', e => { const p = WB.canvasPt(cv, e.touches[0].clientX, e.touches[0].clientY); onDown(p.x, p.y); e.preventDefault(); }, {passive:false});
   cv.addEventListener('touchmove', e => { input.pointerX = canvasX(e.touches[0].clientX); e.preventDefault(); }, {passive:false});
   cv.addEventListener('mouseleave', () => input.pointerX = null);
 
   let paused = false;
+  // switching away mid-game pauses it, so nothing falls while nobody's looking
+  WB.onAway(() => { if(state === STATE.PLAY) paused = true; });
 
   function reset(){
     score = 0; toppleTimer = 0;
@@ -407,6 +431,8 @@
 
     ctx.restore();
 
+    if(state === STATE.PLAY && !paused) drawRoundButton(PAUSE_BTN, 'pause');
+
     if(state === STATE.MENU){
       centerText([
         {text:'💩 COMBAT WOMBAT 💩', font:'bold 52px "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:56},
@@ -415,6 +441,7 @@
         {text:'Don\'t let the tower topple!', font:'24px "Comic Sans MS", cursive', gap:80},
         {text:'▶ Click / Tap / Space to start', font:'bold 28px "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
       ]);
+      drawButton(BTN_MENU, '◂ Menu', '#fff8e7', '#7a3d12', 22);
     }
     if(state === STATE.OVER){
       centerText([
@@ -424,11 +451,17 @@
         {text:'Reached level ' + level + ' · ' + S.stack.length + ' plops', font:'22px "Comic Sans MS", cursive', gap:80},
         {text:'▶ Click / Space to poop again', font:'bold 26px "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
       ]);
+      drawButton(BTN_MENU, '◂ Menu', '#fff8e7', '#7a3d12', 22);
     }
     if(paused && state===STATE.PLAY){
-      centerText([{text:'⏸ Paused', font:'bold 48px "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:40},
-                  {text:'press P to resume', font:'22px "Comic Sans MS", cursive'}]);
+      centerText([{text:'⏸ Paused', font:'bold 48px "Comic Sans MS", cursive', color:'#fff', stroke:true}]);
+      drawButton(BTN_RESUME, '▶ Resume', '#7bed9f', '#14532d');
+      drawButton(BTN_QUIT,   '🏠 Main menu', '#fff8e7', '#7a3d12');
     }
+
+    // the cursor only hides while you're steering the platform with it
+    const cursor = state === STATE.PLAY && !paused ? 'none' : 'default';
+    if(cv.style.cursor !== cursor) cv.style.cursor = cursor;
   }
 
   reset();                                // a run to show behind the title screen
