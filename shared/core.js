@@ -11,6 +11,20 @@
   // top platform the wombat crawls along
   WB.topPlat = { x: WB.W/2, y: 132, w: WB.W - 120, h: 22 };
 
+  // Canvas text doesn't make the browser fetch a web font, so ask for both
+  // weights up front. Until they arrive the canvas uses the fallback fonts,
+  // and since it redraws every frame it switches over by itself.
+  if(document.fonts && document.fonts.load){
+    document.fonts.load('400 20px "Comic Neue"').catch(() => {});
+    document.fonts.load('700 20px "Comic Neue"').catch(() => {});
+  }
+
+  // a phone or tablet (finger, not mouse): changes what the hints say
+  WB.isTouch = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+  // sound effects: a no-op unless shared/sound.js is loaded
+  WB.sfx = () => {};
+
   WB.rand  = (a,b) => a + Math.random()*(b-a);
   WB.clamp = (v,a,b) => v<a?a:v>b?b:v;
 

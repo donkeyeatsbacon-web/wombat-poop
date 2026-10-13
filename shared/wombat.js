@@ -18,6 +18,7 @@
       born: t
     });
     wombat.strain = 1;   // peak scrunch at the moment of release
+    WB.sfx('plop');
     // little grunt puff from underneath
     for(let i=0;i<6;i++){
       S.particles.push(WB.puff(wombat.x, wombat.y+40, '#9b6b3a'));
@@ -84,6 +85,7 @@
           for(let k=0;k<6;k++) S.particles.push({ x: lettuce.x + rand(-10,10), y: lettuce.y - hop + rand(-6,6),
             vx: rand(-3,3), vy: rand(-3.5,-0.5), life: rand(12,24), max:24, r: rand(2,4), color:'#7cc743', kind:'splat', g:.25 });
           S.shake = Math.min(S.shake + 2, 6);
+          WB.sfx('crunch');
         }
       }
       if(wombat.timer > 42){
@@ -91,6 +93,7 @@
         S.diarrheaTimer = 210; S.diarrheaSpawn = t;   // uh oh — a few seconds of the runs
         S.diarrheaX = wombat.x;                       // it drips from right here for the duration
         S.nextSpawn = t + 1e9;                        // no normal poops meanwhile
+        WB.sfx('gurgle');
         wombat.mode = 'crawl';
       }
 

@@ -73,13 +73,13 @@ const r6 = v => { if(typeof v !== 'number') return v; const x = Math.round(v*1e4
 
 function makeCtx(log){
   let st = { m:[1,0,0,1,0,0], fillStyle:'#000', strokeStyle:'#000', globalAlpha:1, lineWidth:1,
-             lineCap:'butt', font:'10px sans-serif', textAlign:'start', dash:[], dashOffset:0 };
+             lineCap:'butt', lineJoin:'miter', font:'10px sans-serif', textAlign:'start', dash:[], dashOffset:0 };
   const stack = [];
   let path = [];
   const M = () => st.m.map(r6).join(',');
   const style = s => (s && s.grad) ? 'grad(' + s.grad.map(r6) + '|' + s.stops.join(';') + ')' : String(s);
   const draw = (op, extra) => log.push([op, extra, 'a=' + r6(st.globalAlpha)].join(' '));
-  const strokeState = () => `ss=${style(st.strokeStyle)} lw=${r6(st.lineWidth)} cap=${st.lineCap}` +
+  const strokeState = () => `ss=${style(st.strokeStyle)} lw=${r6(st.lineWidth)} cap=${st.lineCap} join=${st.lineJoin}` +
       (st.dash.length ? ` dash=${st.dash} off=${r6(st.dashOffset)}` : '');
   const ctx = {
     save(){ stack.push({ ...st, m: st.m.slice(), dash: st.dash.slice() }); },
@@ -95,18 +95,23 @@ function makeCtx(log){
     arc(...a){ path.push('A' + a.map(r6) + '@' + M()); },
     arcTo(...a){ path.push('T' + a.map(r6) + '@' + M()); },
     ellipse(...a){ path.push('E' + a.map(r6) + '@' + M()); },
+    quadraticCurveTo(...a){ path.push('Q' + a.map(r6) + '@' + M()); },
+    bezierCurveTo(...a){ path.push('B' + a.map(r6) + '@' + M()); },
+    rect(...a){ path.push('R' + a.map(r6) + '@' + M()); },
     closePath(){ path.push('Z'); },
     fill(){ draw('fill', `fs=${style(st.fillStyle)} ${path.join(' ')}`); },
     stroke(){ draw('stroke', `${strokeState()} ${path.join(' ')}`); },
     clip(){ draw('clip', path.join(' ')); },
     fillRect(...a){ draw('fillRect', `fs=${style(st.fillStyle)} ${a.map(r6)}@${M()}`); },
     clearRect(...a){ draw('clearRect', `${a.map(r6)}@${M()}`); },
+    strokeRect(...a){ draw('strokeRect', `${strokeState()} ${a.map(r6)}@${M()}`); },
     fillText(txt,x,y){ draw('fillText', `fs=${style(st.fillStyle)} font=${st.font} al=${st.textAlign==='start'?'left':st.textAlign} "${txt}" ${r6(x)},${r6(y)}@${M()}`); },
     strokeText(txt,x,y){ draw('strokeText', `${strokeState()} font=${st.font} al=${st.textAlign==='start'?'left':st.textAlign} "${txt}" ${r6(x)},${r6(y)}@${M()}`); },
     createLinearGradient(...a){ const g = { grad:a, stops:[], addColorStop(o,c){ g.stops.push(o+':'+c); } }; return g; },
+    createRadialGradient(...a){ const g = { grad:['radial', ...a], stops:[], addColorStop(o,c){ g.stops.push(o+':'+c); } }; return g; },
     setLineDash(d){ st.dash = d.slice(); },
   };
-  for(const k of ['fillStyle','strokeStyle','globalAlpha','lineWidth','lineCap','font','textAlign'])
+  for(const k of ['fillStyle','strokeStyle','globalAlpha','lineWidth','lineCap','lineJoin','font','textAlign'])
     Object.defineProperty(ctx, k, { get(){ return st[k]; }, set(v){ st[k] = k==='font' ? String(v).replace(/,\s+/g, ',') : v; } });
   Object.defineProperty(ctx, 'lineDashOffset', { get(){ return st.dashOffset; }, set(v){ st.dashOffset = v; } });
   return ctx;
@@ -165,20 +170,30 @@ function boot(dir, page, storage, seed){
 
 // ----- input controller: reads the (old) frame log, decides the next input -----
 function findAll(log, re){ const out = []; for(const l of log){ const m = re.exec(l); if(m) out.push(m); } return out; }
+// The player's headband knot: a #ff5a4e dot in the cartoon art (centre y
+// -135.5; -123 in its first draft), or a #e74c3c dot in the original art (y -38). World x comes from the transform.
+const KNOTS = [
+  [/fill fs=#ff5a4e E(-?[\d.]+),-135\.5,5\.5,5\.5,0,0,6\.2832@([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)/, -135.5],
+  [/fill fs=#ff5a4e E(-?[\d.]+),-123,6\.5,6\.5,0,0,6\.2832@([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)/, -123],
+  [/fill fs=#e74c3c A(-?[\d.]+),-38,7,0,7@([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)/, -38],
+];
 function wombatX(log){
-  // the player's headband dot (#e74c3c arc, radius 7) — world x via the transform's e
-  const m = findAll(log, /fill fs=#e74c3c A(-?[\d.]+),-38,7,0,7@([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)/);
-  if(!m.length) return null;
-  const g = m[m.length-1]; const [a,,c,,e] = g.slice(2).map(Number);
-  return e + a*Number(g[1]) + c*(-38);
+  for(const [re, ky] of KNOTS){
+    const m = findAll(log, re);
+    if(!m.length) continue;
+    const g = m[m.length-1]; const [a,,c,,e] = g.slice(2).map(Number);
+    return e + a*Number(g[1]) + c*ky;
+  }
+  return null;
 }
 
-// x (and screen y) of the falling poop nearest the ground: poop bodies are
-// gradient fills (55% saturation); the first `height` of them are the pile
+// x (and screen y) of the falling poop nearest the ground: a poop body is the
+// first fill of each poop (flat hsl 52%/37% in the cartoon art, a 55%/42%
+// gradient in the original); the first `height` of them are the pile
 function lowestPlop(log, height){
-  const bodies = findAll(log, /^fill fs=grad\([^)]*\|0:hsl\([^)]*55%, 42%\)[^@]*@[^ ]*/)
+  const bodies = findAll(log, /^fill fs=(?:hsl\([^)]*52%, 37%\)|grad\([^)]*\|0:hsl\([^)]*55%, 42%\))[^@]*@[^ ]*/)
     .map(m => m[0].split('@')[1].split(',').map(Number));
-  const puddles = log.filter(l => /^fill fs=grad\([^|]*\|0:#8a6a2a/.test(l)).length;
+  const puddles = log.filter(l => /^fill fs=(?:#8a6a2a|grad\([^|]*\|0:#8a6a2a)/.test(l)).length;
   const plops = bodies.slice(Math.max(0, height - puddles));
   let best = null;
   for(const m of plops){ if(!best || m[5] > best[5]) best = m; }
@@ -213,7 +228,7 @@ function run(oldDir, newDir, page, frames, seed, skilled, hz = 60){
     }
     const txt = la.filter(l => l.startsWith('fillText')).join('\n');
     // coverage markers
-    for(const [k, re] of [['lettuce', /fs=#a6e06a/], ['diarrheaDrop', /fs=#6f4e1a/], ['puddle', /#8a6a2a/],
+    for(const [k, re] of [['lettuce', /fs=#(?:a6e06a|b2e875)/], ['diarrheaDrop', /fs=#(?:6f4e1a|7a5520)/], ['puddle', /#8a6a2a/],
         ['level2+', /Lv [2-9]/], ['topple', /TIMBERRR/], ['outOfTP', /Out of toilet paper/],
         ['paused', /Paused/], ['tippy', /TIPPY/], ['overworld', /Home Burrow/], ['levelHUD', /Impress|Out-stack/],
         ['banked', /Stack complete/], ['won', /Impressed!|Driven off!/], ['failed', /Failed!/],

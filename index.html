@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>💩 Combat Wombat 💩</title>
-<link rel="stylesheet" href="shared/base.css?v=be0a1df0">
+<link rel="stylesheet" href="shared/base.css?v=30c6dc38">
 <style>
   html, body { touch-action: manipulation; }
   #wrap { flex-direction: column; justify-content: safe center; gap: 14px; padding: 16px; overflow-y: auto; }
@@ -30,9 +30,16 @@
   .mode .what { font-size: 16px; margin-top: 4px; color: #7a3d12; }
   .mode .status { font-size: 15px; margin-top: 8px; color: #14532d; font-weight: bold; }
   .mode .status:empty { display: none; }
+  #sound {
+    position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px));
+    font: inherit; font-size: 16px; font-weight: bold; color: #2d5016; cursor: pointer;
+    background: rgba(255,255,255,.78); border: 3px solid #2d5016; border-radius: 999px; padding: 6px 14px;
+  }
+  #sound:focus-visible { outline: 4px solid #ffe14d; outline-offset: 2px; }
 </style>
 </head>
 <body>
+<button id="sound" type="button"></button>
 <div id="wrap">
   <h1>💩 Combat Wombat 💩</h1>
   <div class="tag">Catch the plops. Stack 'em high.</div>
@@ -50,8 +57,9 @@
     </a>
   </nav>
 </div>
-<script src="shared/core.js?v=c6ad66ef"></script>
-<script src="shared/art.js?v=7e58af87"></script>
+<script src="shared/core.js?v=f6589e31"></script>
+<script src="shared/sound.js?v=945a409e"></script>
+<script src="shared/art.js?v=ef034edb"></script>
 <script>
 (() => {
   // what's saved, so each mode can say where you're up to
@@ -62,6 +70,16 @@
   const save = read('wombatCampaignSave');
   if(save && save.player && Number.isFinite(save.player.day))
     document.getElementById('campaignStatus').textContent = '▶ Continue — Day ' + save.player.day;
+
+  // sound on/off, shared with both modes
+  const soundBtn = document.getElementById('sound');
+  const showSound = () => {
+    const off = WB.sound.muted();
+    soundBtn.textContent = off ? '🔇 Sound off' : '🔊 Sound on';
+    soundBtn.setAttribute('aria-pressed', String(!off));
+  };
+  soundBtn.addEventListener('click', () => { WB.sound.toggle(); showSound(); });
+  showSound();
 
   // the wombat, shuffling about
   const cv = document.getElementById('wombat'), ctx = cv.getContext('2d');

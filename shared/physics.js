@@ -190,6 +190,7 @@
     }
     S.stack.push({ off, x: p.x, y: p.y, w: p.w, h: p.h, hue: p.hue, squish: 1.3, rot, tip });
     if(S.hooks.onSettle) S.hooks.onSettle(p);
+    WB.sfx('land', p.w);
     S.comboFlash = 12;
     WB.star(S, p.x, p.y + S.camOffset);
     S.shake = Math.min(S.shake + 3, 10);
@@ -256,6 +257,7 @@
         if(p.collapsed){ continue; }   // knocked loose by diarrhea, not a real miss
         S.misses++;
         WB.splat(S, p.x, H-6);
+        WB.sfx('splat');
         S.shake = Math.min(S.shake+6, 14);
         S.hooks.onMiss();
         continue;
@@ -364,6 +366,7 @@
     c.melting = true; c.meltT = 0;
     c.bottomY = c.y + c.h/2; c.origH = c.h; c.origW = c.w;
     S.shake = Math.min(S.shake + 3, 10);
+    WB.sfx('sizzle');
   }
 
   function shrinkPlatform(S, x){
@@ -373,6 +376,7 @@
     plat.w = plat.baseW - plat.shrink;
     plat.x = clamp(plat.x, plat.w/2, W - plat.w/2);
     S.shake = Math.min(S.shake + 6, 14);
+    WB.sfx('fizz');
     for(let k=0;k<7;k++) S.particles.push({ x, y: plat.y - plat.h/2 + S.camOffset,
       vx: rand(-2.2,2.2), vy: rand(-3,-0.5), life: rand(16,30), max:30, r: rand(3,6), color:'#eaf6ff', kind:'puff' });
   }
