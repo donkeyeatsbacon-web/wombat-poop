@@ -7,6 +7,8 @@ it topples. (Real wombats do poop cubes.)
 **Play it:** <https://donkeyeatsbacon-web.github.io/wombat-poop/>
 
 It runs in any modern browser, on desktop and phone, with nothing to install.
+The front page lets you pick a mode, and shows your best score and how far
+your campaign has got.
 
 ## Two ways to play
 
@@ -49,12 +51,14 @@ Progress saves automatically after each day, so you can close the page and
 | --- | --- | --- |
 | Move the platform | Mouse, or ← → / A D | Drag your finger |
 | Start / choose | Click (Space / Enter also start endless) | Tap |
-| Pause (endless) | P | — |
+| Pause | ⏸ button, or P / Esc | ⏸ button (top right) |
+| Back to the mode menu | ◂ Menu, or Main menu from the pause screen | Same |
+
+The game also pauses itself if you switch tab or app mid-level.
 
 ## Running it locally
 
-Open `wombat-poop.html` or `wombat-campaign.html` straight in your browser,
-and that's it.
+Open `index.html` straight in your browser, and that's it.
 
 To test from a phone on the same network, serve the folder instead:
 
@@ -62,7 +66,7 @@ To test from a phone on the same network, serve the folder instead:
 python3 -m http.server 8752
 ```
 
-Then visit `http://<your-computer's-IP>:8752/wombat-poop.html`.
+Then visit `http://<your-computer's-IP>:8752/`.
 
 ## How the code is laid out
 
@@ -70,18 +74,23 @@ There's no build step and there are no dependencies, just HTML and plain JavaScr
 
 | Path | What's in it |
 | --- | --- |
-| `index.html` | Redirects to endless mode (the site's front page) |
+| `index.html` | The front page: pick endless or campaign |
 | `wombat-poop.html` | Endless mode: scoring, level climbing, toppling, high scores |
 | `wombat-campaign.html` | Campaign: map, mates and rivals, buffs, save/load |
-| `shared/core.js` | Screen fitting for sharp high-DPI rendering and notches, constants, input helpers |
+| `shared/core.js` | The game clock, screen fitting for sharp high-DPI rendering and notches, constants, input helpers |
 | `shared/physics.js` | Falling poops, stacking, the wobble, melting and collapse, particles |
 | `shared/wombat.js` | The wombat's crawl, poop and lettuce-eating routine |
 | `shared/art.js` | Drawing of the wombats, poops, platforms, lettuce, ground and goal line |
 | `shared/base.css` | Page layout shared by both modes |
 | `tools/compare.js` | Refactor safety check, see [tools/README.md](tools/README.md) |
+| `tools/bump-version.js` | Stamps the `shared/` links with version hashes (see below) |
 
 Both pages load the `shared/` files as ordinary `<script>` tags rather than ES
 modules, so the game still works when opened directly from disk.
+
+The game runs on a fixed clock of 60 steps a second, whatever the screen's
+refresh rate, so it plays at the same speed on a 60 Hz laptop and a 120 Hz
+phone. All speeds and timers are counted in those steps.
 
 Each mode tunes the pile physics its own way. The campaign is softer and caps
 how fast poops fall. Those settings sit in a `TUNE` block near the top of each
@@ -95,6 +104,18 @@ Everything is kept in the browser's `localStorage`:
 - `wombatCampaignSave`: the campaign in progress
 
 ## Making changes safely
+
+**After editing anything in `shared/`, run:**
+
+```bash
+node tools/bump-version.js
+```
+
+It stamps each `shared/` link in the pages with a hash of the file
+(`shared/physics.js?v=3fa9c2e1`). Browsers cache the site's files for a few
+minutes, and without a new stamp a player could get a fresh page with a stale
+shared script. `node tools/bump-version.js --check` tells you whether any stamp
+is out of date without changing anything.
 
 If you're cleaning up code and the game should play exactly the same afterwards,
 run the comparison tool:
