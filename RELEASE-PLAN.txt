@@ -26,9 +26,9 @@ Section 5 is the final release checklist.
 Each item says where it is and why it matters. They're ordered by how badly
 they hurt a new player.
 
-BLOCKERS (fix before anyone outside plays it)
+BLOCKERS (fix before anyone outside plays it)  -- ALL DONE in sprint 1
 
-B1. The game runs faster on high-refresh-rate screens.
+B1. [DONE] The game runs faster on high-refresh-rate screens.
     Every update is "one step per animation frame" (t++ in update(); fixed
     per-frame gravity, speeds and timers in shared/physics.js and
     shared/wombat.js). On 120 Hz phones (recent iPhones and many Androids)
@@ -40,14 +40,14 @@ B1. The game runs faster on high-refresh-rate screens.
     render once per frame. Keep 60 Hz behaviour identical so
     tools/compare.js still passes.
 
-B2. There's no way to reach the campaign.
+B2. [DONE] There's no way to reach the campaign.
     index.html redirects straight to endless mode, and neither page links
     to the other. The campaign is only reachable by typing its URL.
     Fix: a small title / mode-select screen (or buttons on endless mode's
     title and game-over screens, plus a "back to menu" on the campaign
     intro).
 
-B3. Players can't pause on a phone.
+B3. [DONE] Players can't pause on a phone.
     Pause is the P key only (endless), and the campaign has no pause at
     all. On phones there's also no auto-pause: if a call or notification
     pulls the player away, the game picks straight back up mid-fall when
@@ -55,7 +55,7 @@ B3. Players can't pause on a phone.
     Fix: an on-screen pause button in both modes, and auto-pause on
     'visibilitychange' / 'blur'.
 
-B4. Players may get mismatched files after an update.
+B4. [DONE] Players may get mismatched files after an update.
     The pages load shared/*.js and shared/base.css with plain URLs.
     GitHub Pages caches files for about 10 minutes, so a player can get a
     new page with an old shared script (or the reverse) right after a push,
@@ -123,8 +123,8 @@ P1. No favicon, link-preview description or share image. Links shared in
     an icon.
 P2. No "add to home screen" support (web app manifest + icons). With an
     offline service worker it would play like an app on phones.
-P3. Endless mode hides the mouse cursor (cursor: none) on the menus and
-    game-over screen too, not just during play.
+P3. [DONE in sprint 1] Endless mode hides the mouse cursor (cursor: none) on
+    the menus and game-over screen too, not just during play.
 P4. The campaign has only 4 mate names and 4 rival names, so long seasons
     repeat them a lot.
 P5. The endless high score is a single personal best. A short local top-5
@@ -232,12 +232,19 @@ Phase D - Final check (release candidate, 1-2 days)
 4. IMPROVEMENT BACKLOG, IN ORDER
 --------------------------------
 
-  Sprint 1 - Blockers
-    1. Fixed 60 steps/second simulation clock (B1); verify with compare.js
-    2. Pause button + auto-pause in both modes (B3)
-    3. Mode select / links between modes (B2)
-    4. Cache-busting versions on shared files (B4)
-    -> Then Phase A
+  Sprint 1 - Blockers  [DONE 2026-10-13]
+    1. [x] Fixed 60 steps/second simulation clock (B1). compare.js shows
+           the same game at 60/120/180/240 Hz; clock also checked at 30, 50,
+           90, 144 and 165 Hz.
+    2. [x] Pause button + auto-pause in both modes (B3). Campaign map got a
+           menu button too.
+    3. [x] Mode-select front page (index.html) + Menu buttons in both
+           modes (B2).
+    4. [x] Cache-busting versions on shared files (B4):
+           run `node tools/bump-version.js` after editing shared/.
+           Note: anyone who visited before this change may see the old
+           index.html (which redirected to endless) for up to ~10 minutes.
+    -> Next: Phase A
 
   Sprint 2 - The first minute
     5. Sound effects + remembered mute toggle (I1)
