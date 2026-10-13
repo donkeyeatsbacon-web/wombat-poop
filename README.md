@@ -48,7 +48,7 @@ Progress saves automatically after each day, so you can close the page and
 | | Desktop | Phone / tablet |
 | --- | --- | --- |
 | Move the platform | Mouse, or ← → / A D | Drag your finger |
-| Start / choose | Click, or Space / Enter | Tap |
+| Start / choose | Click (Space / Enter also start endless) | Tap |
 | Pause (endless) | P | — |
 
 ## Running it locally
