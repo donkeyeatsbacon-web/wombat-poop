@@ -182,7 +182,7 @@ function lowestPlop(log, height){
   return best ? best[4] : null;
 }
 
-function run(oldDir, newDir, page, frames, seed, SKILL){
+function run(oldDir, newDir, page, frames, seed, skilled){
   const store = { old:{}, new:{} };
   let A = boot(oldDir, page, store.old, seed), B = boot(newDir, page, store.new, seed);
   const ctl = seeded(seed * 7919 + 13);
@@ -228,12 +228,12 @@ function run(oldDir, newDir, page, frames, seed, SKILL){
       if(r < 0.0008){ both(g => g.key('keydown','p')); }
       const wx = wombatX(la);
       const hm = /"height: (\d+)"/.exec(txt);
-      const px = +SKILL && hm ? lowestPlop(la, +hm[1]) : null;
+      const px = skilled && hm ? lowestPlop(la, +hm[1]) : null;
       if(px !== null) aim = px + (ctl()-0.5)*6;
-      else if(wx !== null) aim = wx + (ctl()-0.5)*(+SKILL ? 6 : 60);
+      else if(wx !== null) aim = wx + (ctl()-0.5)*(skilled ? 6 : 60);
       if(r > 0.995){ const k = ctl() < 0.5 ? 'arrowleft' : 'arrowright'; both(g => g.key('keydown', k)); }
       else if(r > 0.985){ both(g => { g.key('keyup','arrowleft'); g.key('keyup','arrowright'); }); }
-      pointer += (aim - pointer) * (+SKILL ? 0.5 : 0.08);
+      pointer += (aim - pointer) * (skilled ? 0.5 : 0.08);
       if(r < 0.5) both(g => g.mouse('mousemove', pointer, 400));
       else if(r < 0.52) both(g => g.touch('touchmove', pointer, 400));
       if(r > 0.9999) both(g => g.mouse('mouseleave'));
@@ -257,11 +257,11 @@ function run(oldDir, newDir, page, frames, seed, SKILL){
       }
       if(inLevel){
         const wx = wombatX(la);
-        const Lv = +SKILL && A.sandbox.__L && A.sandbox.__L();
+        const Lv = skilled && A.sandbox.__L && A.sandbox.__L();
         const low = Lv && Lv.plops.filter(p => !p.collapsed).sort((p,q) => q.y - p.y)[0];
         if(low) aim = low.x - (Lv.pileCOMx - Lv.plat.x)*0.5 + (ctl()-0.5)*6;
         else if(wx !== null) aim = wx + (ctl()-0.5)*50;
-        pointer += (aim - pointer) * (+SKILL ? 0.5 : 0.09);
+        pointer += (aim - pointer) * (skilled ? 0.5 : 0.09);
         if(r < 0.6) both(g => g.mouse('mousemove', pointer, 400));
         else if(r < 0.62) both(g => g.touch('touchmove', pointer, 400));
         if(r > 0.997){ const k = ctl() < 0.5 ? 'a' : 'd'; both(g => g.key('keydown', k)); }
@@ -270,7 +270,7 @@ function run(oldDir, newDir, page, frames, seed, SKILL){
     }
   }
   const storeSame = JSON.stringify(store.old) === JSON.stringify(store.new);
-  console.log(`${page} seed=${seed}${SKILL ? ' skilled' : ''}: ${mismatches ? 'DIFFERENT' : 'identical'} over ${frames} frames` +
+  console.log(`${page} seed=${seed}${skilled ? ' skilled' : ''}: ${mismatches ? 'DIFFERENT' : 'identical'} over ${frames} frames` +
               `, storage ${storeSame ? 'identical' : 'DIFFERENT'}, reloads=${reloads}`);
   console.log('  covered:', [...seen].sort().join(', '));
   return !mismatches && storeSame;
