@@ -170,9 +170,10 @@ function boot(dir, page, storage, seed){
 
 // ----- input controller: reads the (old) frame log, decides the next input -----
 function findAll(log, re){ const out = []; for(const l of log){ const m = re.exec(l); if(m) out.push(m); } return out; }
-// The player's headband knot: a #ff5a4e dot in the cartoon art (centre y -123),
-// or a #e74c3c dot in the original art (y -38). World x comes from the transform.
+// The player's headband knot: a #ff5a4e dot in the cartoon art (centre y
+// -135.5; -123 in its first draft), or a #e74c3c dot in the original art (y -38). World x comes from the transform.
 const KNOTS = [
+  [/fill fs=#ff5a4e E(-?[\d.]+),-135\.5,5\.5,5\.5,0,0,6\.2832@([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)/, -135.5],
   [/fill fs=#ff5a4e E(-?[\d.]+),-123,6\.5,6\.5,0,0,6\.2832@([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)/, -123],
   [/fill fs=#e74c3c A(-?[\d.]+),-38,7,0,7@([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+),([-\d.]+)/, -38],
 ];

@@ -10,14 +10,20 @@
   const INK = WB.INK = '#2a1c12';
   const TAU = Math.PI * 2;
 
-  // wombat colour schemes: fur, its shade, belly/muzzle, inner ear, headband + knot
-  WB.PAL_PLAYER = { fur:'#9b7556', shade:'#7b5a40', belly:'#e3be98', earIn:'#e9a98f', band:'#2f8a3a', dot:'#ff5a4e' };
-  WB.PAL_RIVAL  = { fur:'#7d7068', shade:'#5d534c', belly:'#bfb0a2', earIn:'#c9998d', band:'#a3321a', dot:'#f0c419' };
-  WB.PAL_MATE   = { fur:'#a87a5e', shade:'#855b44', belly:'#f2cfb2', earIn:'#f3a3b6', band:'#d0508f', dot:'#fff0f6' };
+  // wombat colour schemes: fur and its shade, pale muzzle, belly, nose, inner
+  // ear, headband + knot. The player is the grey-brown of a common wombat;
+  // rivals are darker and greyer, mates warmer.
+  WB.PAL_PLAYER = { fur:'#8c7d6e', shade:'#685b4f', light:'#c3b4a4', belly:'#a39383', nose:'#2b2420',
+                    earIn:'#cfa79a', band:'#2f8a3a', dot:'#ff5a4e' };
+  WB.PAL_RIVAL  = { fur:'#6e6762', shade:'#4e4945', light:'#a69d95', belly:'#857e77', nose:'#1f1b18',
+                    earIn:'#b88f88', band:'#a3321a', dot:'#f0c419' };
+  WB.PAL_MATE   = { fur:'#9e8069', shade:'#78614f', light:'#dbc4ae', belly:'#b99d86', nose:'#2b2420',
+                    earIn:'#efa5b2', band:'#d0508f', dot:'#fff0f6' };
 
-  // The cartoon wombat is drawn standing on its feet; this scales it to the
-  // size of the game's original art, whose body centre sat 66 above the feet.
-  const WOMBAT_SIZE = 0.9, FEET_BELOW = 66;
+  // The wombat is drawn standing on its feet (about 160 tall, ears included);
+  // this scales it to fit where the game's original art went, whose body
+  // centre sat 66 above the feet.
+  const WOMBAT_SIZE = 0.84, FEET_BELOW = 66;
 
   WB.createArt = function(ctx, now){
 
@@ -86,6 +92,31 @@
       }
     }
 
+    // ---------- the wombat ----------
+    // Drawn from a reference photo: small pointed ears set high, a broad flat
+    // nose, no neck, a pear-shaped body widest at the hips, shaggy cheeks and
+    // hips, and claws on the paws (held at the chest) and feet. The eyes are
+    // cartoon (whites, pupils, eyebrows) so it can act.
+
+    // One outlined silhouette from several overlapping shapes: stroke them all
+    // at double width, then fill them all, so only the outer edge shows.
+    function union(paths, fill){
+      const lw = ctx.lineWidth;
+      ctx.lineWidth = lw*2; for(const p of paths){ p(); ctx.stroke(); }
+      ctx.fillStyle = fill; for(const p of paths){ p(); ctx.fill(); }
+      ctx.lineWidth = lw;
+    }
+    function claws(x, y, n, gap, len){
+      ctx.save(); ctx.strokeStyle = '#f1eadf'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+      for(let k=0;k<n;k++){ const cx = x + (k - (n-1)/2)*gap; ctx.beginPath(); ctx.moveTo(cx, y); ctx.lineTo(cx, y + len); ctx.stroke(); }
+      ctx.restore();
+    }
+    function pointedEar(x, y, side, sc, fur, inner){
+      const b = 11*sc, h = 24*sc;
+      ctx.beginPath(); ctx.moveTo(x - b, y); ctx.lineTo(x + side*5*sc, y - h); ctx.lineTo(x + b, y); ctx.closePath(); inked(fur);
+      ctx.fillStyle = inner; ctx.beginPath(); ctx.moveTo(x - b*0.45, y - 2); ctx.lineTo(x + side*4*sc, y - h*0.72); ctx.lineTo(x + b*0.45, y - 2); ctx.closePath(); ctx.fill();
+    }
+
     // The combat wombat, parameterised so any wombat can use it: wb carries
     // x, y (body centre), face (-1 left .. 1 right), strain (0..1), crawl (walk
     // cycle), wob, mode ('crawl', 'eat', ...), timer, blink. extras: angry
@@ -97,104 +128,113 @@
       const p = wb.strain||0, f = clamp(wb.face||0,-1,1), af = Math.abs(f), sg = f<0 ? -1 : 1;
       const blink = (wb.blink||0) > 0, mode = wb.mode || 'crawl', walking = mode === 'crawl';
       const ph = wb.crawl||0, angry = !!extras.angry;
+      const far = (side, from) => (side === -sg && af > from) ? 1 - af*0.35 : 1;   // the far ear/eye shrinks on a turn
 
       ctx.save();
       ctx.translate(wb.x, wb.y + FEET_BELOW*scale + (wb.wob||0)*0.2*scale - (extras.lift||0));
       ctx.scale(scale*WOMBAT_SIZE, scale*WOMBAT_SIZE);
       ctx.lineWidth = 4.5; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      // a shake when forcing one out
-      ctx.translate(p > 0.35 ? Math.sin(t*1.1)*(p-0.35)*7 : 0, 0);
+      ctx.translate(p > 0.35 ? Math.sin(t*1.1)*(p-0.35)*7 : 0, 0);         // a shake when forcing one out
 
-      // feet shuffle while walking
-      const lf = walking ? Math.max(0, Math.sin(ph))*8 : 0, rf = walking ? Math.max(0, -Math.sin(ph))*8 : 0;
-      ell(-24 + f*8, -9 - lf, 18, 10); inked(pal.shade);
-      ell(24 + f*8, -9 - rf, 18, 10); inked(pal.shade);
+      // short wide feet with claws
+      for(const side of [-1, 1]){
+        const lift = walking ? Math.max(0, side*Math.sin(ph))*7 : 0, fx = side*28 + f*6;
+        ell(fx, -8 - lift, 21, 10); inked(pal.shade);
+        claws(fx + f*8, -3 - lift, 3, 6, 4);
+      }
       // the rest bobs with each step and squashes down when straining
-      ctx.translate(0, walking ? -Math.abs(Math.sin(ph))*6 : 0);
+      ctx.translate(0, walking ? -Math.abs(Math.sin(ph))*5 : 0);
       ctx.scale(1 + p*0.08, 1 - p*0.1);
 
-      // body, belly, arms
-      ell(0, -46, 54, 40); inked(pal.fur);
-      ctx.fillStyle = pal.belly; ell(f*12, -38, 31, 25); ctx.fill();
-      const sw = walking ? Math.sin(ph)*5 : 0;
-      ell(-50 + f*6, -44 + sw, 11, 16, 0.45); inked(pal.fur);
-      ell(50 + f*6, -44 - sw, 11, 16, -0.45); inked(pal.fur);
+      // small pointed ears, set high, behind the head
+      const hx = f*10;
+      for(const side of [-1, 1]) pointedEar(hx + side*24*(1 - af*0.2), -136, side, far(side, 0.2), pal.fur, pal.earIn);
 
-      // ears (the far one shrinks as it turns)
-      const hx = f*12, ex = 38*(1 - af*0.2);
+      // head runs straight into a pear-shaped body: one silhouette, shaggy at cheeks and hips
+      const head = () => ell(hx, -114, 46, 34);
+      const tuft = (side, x, y) => () => {
+        ctx.beginPath(); ctx.moveTo(x, y - 14); ctx.lineTo(x + side*14, y - 7); ctx.lineTo(x + side*3, y - 3);
+        ctx.lineTo(x + side*12, y + 5); ctx.lineTo(x - side*2, y + 8); ctx.closePath();
+      };
+      union([
+        () => ell(0, -46, 60, 44), () => ell(f*4, -84, 48, 40), head,
+        tuft(-1, hx - 40, -106), tuft(1, hx + 40, -106), tuft(-1, -56, -44), tuft(1, 56, -44),
+      ], pal.fur);
+      ctx.fillStyle = pal.belly; ell(f*6, -46, 36, 30); ctx.fill();
+      ctx.strokeStyle = pal.shade; ctx.lineWidth = 2.5;                   // a few strokes of fur
+      for(const [fx, fy] of [[-34,-70], [-24,-94], [30,-66], [22,-92]]){ ctx.beginPath(); ctx.moveTo(fx + f*4, fy); ctx.lineTo(fx + f*4 + 4, fy + 6); ctx.stroke(); }
+      ctx.strokeStyle = INK; ctx.lineWidth = 4.5;
+
+      // headband across the forehead, tails flapping out behind the turn
+      ctx.save(); head(); ctx.clip();
+      ctx.fillStyle = pal.band; ctx.fillRect(hx - 80, -142, 160, 13);
+      ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(hx - 80, -142); ctx.lineTo(hx + 80, -142); ctx.moveTo(hx - 80, -129); ctx.lineTo(hx + 80, -129); ctx.stroke();
+      ctx.restore(); ctx.lineWidth = 4.5;
+      const tx = hx - sg*44, fl = Math.sin(t*0.22)*6, fl2 = Math.cos(t*0.22)*6;
+      ctx.beginPath(); ctx.moveTo(tx, -139); ctx.lineTo(tx - sg*26, -147 + fl); ctx.lineTo(tx - sg*22, -133 + fl); ctx.closePath(); inked(pal.band);
+      ctx.beginPath(); ctx.moveTo(tx, -134); ctx.lineTo(tx - sg*20, -120 + fl2); ctx.lineTo(tx - sg*10, -116 + fl2); ctx.closePath(); inked(pal.band);
+      ell(hx + f*18, -135.5, 5.5, 5.5); inked(pal.dot);
+
+      // pale muzzle and the big flat nose
+      const mx = hx + f*18;
+      ctx.fillStyle = pal.light; ell(mx, -100, 22, 15); ctx.fill();
+      ctx.lineWidth = 3.5; roundRect(mx + f*3 - 15, -118, 30, 20, 9); inked(pal.nose);
+      ctx.fillStyle = 'rgba(255,255,255,.3)'; ell(mx + f*3 - 5, -113, 5, 2.5); ctx.fill();
+
+      // eyes with whites and pupils, and eyebrows that act
+      const ecx = hx + f*12, sep = 23*(1 - af*0.3);
       for(const side of [-1, 1]){
-        const sc = (side === -sg && af > 0.2) ? 1 - af*0.35 : 1;
-        ell(hx + side*ex, -130, 12*sc, 16*sc, side*0.35); inked(pal.fur);
-        ctx.fillStyle = pal.earIn; ell(hx + side*ex, -128, 6*sc, 9*sc, side*0.35); ctx.fill();
-      }
-
-      // head, with the headband across the top
-      ell(hx, -96, 58, 44); ctx.fillStyle = pal.fur; ctx.fill();
-      ctx.save(); ell(hx, -96, 58, 44); ctx.clip();
-      ctx.fillStyle = pal.band; ctx.fillRect(hx - 70, -132, 140, 17);
-      ctx.lineWidth = 3; ctx.beginPath();
-      ctx.moveTo(hx - 70, -132); ctx.lineTo(hx + 70, -132); ctx.moveTo(hx - 70, -115); ctx.lineTo(hx + 70, -115);
-      ctx.stroke();
-      ctx.restore();
-      ell(hx, -96, 58, 44); ctx.stroke();
-      // band tails flap out behind the turn
-      const tx = hx - sg*54, fl = Math.sin(t*0.22)*6, fl2 = Math.cos(t*0.22)*6;
-      ctx.beginPath(); ctx.moveTo(tx, -124); ctx.lineTo(tx - sg*28, -132 + fl); ctx.lineTo(tx - sg*24, -118 + fl); ctx.closePath(); inked(pal.band);
-      ctx.beginPath(); ctx.moveTo(tx, -120); ctx.lineTo(tx - sg*22, -104 + fl2); ctx.lineTo(tx - sg*12, -100 + fl2); ctx.closePath(); inked(pal.band);
-      ell(hx + f*22, -123, 6.5, 6.5); inked(pal.dot);
-
-      // muzzle and the big nose
-      const mx = hx + f*22;
-      ell(mx, -76, 31, 21); inked(pal.belly);
-      roundRect(mx + f*4 - 16, -97, 32, 19, 9); inked('#3a2820');
-      ctx.fillStyle = 'rgba(255,255,255,.35)'; ell(mx + f*4 - 6, -92, 5, 2.5); ctx.fill();
-
-      // eyes and brows do the acting
-      const ecx = hx + f*16, sep = 25*(1 - af*0.3);
-      for(const side of [-1, 1]){
-        const exx = ecx + side*sep;
-        const sc = (side === -sg && af > 0.15) ? 1 - af*0.35 : 1;
-        if(p > 0.55 || blink){
-          ctx.lineWidth = 4; ctx.beginPath();
-          if(p > 0.55){ ctx.moveTo(exx + side*8*sc, -112); ctx.lineTo(exx - side*5*sc, -106); ctx.lineTo(exx + side*8*sc, -100); }  // >< squeezed shut
-          else ctx.arc(exx, -110, 8*sc, 0.2*Math.PI, 0.8*Math.PI);
-          ctx.stroke();
-        } else {
-          ctx.lineWidth = 3; ell(exx, -106, 10*sc, 12.5*sc); inked('#fff');
-          ctx.fillStyle = INK; ell(exx + f*4, -104 + (p > 0.3 ? 2 : 0), 5*sc, 6.5*sc); ctx.fill();
-          ctx.fillStyle = '#fff'; ell(exx + f*4 + 2, -107, 1.8, 1.8); ctx.fill();
+        const sc = far(side, 0.15), ex = ecx + side*sep, ey = -123;
+        ctx.lineWidth = 3.5; ctx.beginPath();
+        if(p > 0.55){ ctx.moveTo(ex + side*7*sc, ey - 6); ctx.lineTo(ex - side*4*sc, ey); ctx.lineTo(ex + side*7*sc, ey + 6); ctx.stroke(); }  // >< squeezed shut
+        else if(blink){ ctx.arc(ex, ey - 3, 6.5*sc, 0.2*Math.PI, 0.8*Math.PI); ctx.stroke(); }
+        else {
+          ctx.lineWidth = 3; ell(ex, ey, 7*sc, 8.5*sc); inked('#fff');
+          ctx.fillStyle = INK; ell(ex + f*3, ey + 1, 3.8*sc, 4.8*sc); ctx.fill();
+          ctx.fillStyle = '#fff'; ell(ex + f*3 + 1.4, ey - 1, 1.3, 1.3); ctx.fill();
         }
-        ctx.lineWidth = 4.5; ctx.beginPath();
-        if(p > 0.35 || angry){ ctx.moveTo(exx + side*12, -126); ctx.lineTo(exx - side*7, -119); }   // dug in
-        else { ctx.moveTo(exx - 9, -122); ctx.quadraticCurveTo(exx, -127, exx + 9, -122); }         // relaxed
+        ctx.lineWidth = 4; ctx.beginPath();
+        if(p > 0.35 || angry){ ctx.moveTo(ex + side*10, -138); ctx.lineTo(ex - side*6, -132); }      // dug in
+        else { ctx.moveTo(ex - 7.5, -134); ctx.quadraticCurveTo(ex, -139, ex + 7.5, -134); }       // relaxed
         ctx.stroke();
       }
 
-      // mouth
+      // mouth: a small "w" under the nose, a chomp, or gritted teeth
+      const my = -94, ms = 0.9;
       if(mode === 'eat'){
-        const open = Math.abs(Math.sin((wb.timer||0)*0.5));       // chomping: 0 shut .. 1 wide
-        ctx.lineWidth = 3.5; ell(mx, -66, 12, 3 + open*10); inked('#5a2a22');
-        ctx.fillStyle = '#e07b7b'; ell(mx, -62 + open*4, 7, 2 + open*3); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.fillRect(mx - 8, -66 - (3 + open*10) + 1, 4, 3); ctx.fillRect(mx + 4, -66 - (3 + open*10) + 1, 4, 3);
+        const open = Math.abs(Math.sin((wb.timer||0)*0.5));           // 0 shut .. 1 wide
+        ctx.lineWidth = 3; ell(mx, my + 2, 9*ms, (2.5 + open*8)*ms); inked('#5a2a22');
+        ctx.fillStyle = '#e07b7b'; ell(mx, my + 4 + open*3, 5*ms, (1.5 + open*2.5)*ms); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(mx - 6*ms, my + 2 - (2.5 + open*8)*ms + 1, 3*ms, 2.5*ms); ctx.fillRect(mx + 3*ms, my + 2 - (2.5 + open*8)*ms + 1, 3*ms, 2.5*ms);
       } else if(p > 0.5 || angry){
-        ctx.lineWidth = 3.5; roundRect(mx - 11, -70, 22, 10 + p*4, 5); inked('#5a2a22');
-        ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.moveTo(mx - 7, -66); ctx.lineTo(mx + 7, -66); ctx.stroke();
+        ctx.lineWidth = 3; roundRect(mx - 9*ms, my - 3, 18*ms, (7 + p*3)*ms, 3); inked('#5a2a22');
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(mx - 6*ms, my + (0.5 + p)*ms); ctx.lineTo(mx + 6*ms, my + (0.5 + p)*ms); ctx.stroke();
         ctx.strokeStyle = INK;
       } else {
-        ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(mx, -74, 9, 0.2*Math.PI, 0.8*Math.PI); ctx.stroke();
+        ctx.lineWidth = 3; ctx.beginPath();
+        ctx.moveTo(mx - 7*ms, my - 1); ctx.quadraticCurveTo(mx - 3.5*ms, my + 4*ms, mx, my - 1);
+        ctx.quadraticCurveTo(mx + 3.5*ms, my + 4*ms, mx + 7*ms, my - 1); ctx.stroke();
       }
       ctx.lineWidth = 4.5;
 
       // cheeks flush with effort
-      if(!angry || p > 0.4){
-        ctx.fillStyle = `rgba(255,110,100,${0.22 + p*0.45})`;
-        ell(ecx - sep - 8, -84, 9, 5.5); ctx.fill(); ell(ecx + sep + 8, -84, 9, 5.5); ctx.fill();
+      if(p > 0.3){
+        ctx.fillStyle = `rgba(255,110,100,${(p - 0.3)*0.7})`;
+        ell(ecx - sep - 6, -106, 8, 5); ctx.fill(); ell(ecx + sep + 6, -106, 8, 5); ctx.fill();
+      }
+      // paws held at the chest, claws out; they clench together when straining
+      const sw = walking ? Math.sin(ph)*3 : 0, ax = 15 - p*4;
+      for(const side of [-1, 1]){
+        const px = f*8 + side*ax, py = -72 + side*sw;
+        ell(px, py, 13, 9, side*0.5); inked(pal.fur);
+        claws(px - side*2, py + 5, 3, 4, 5);
       }
       // sweat bead when really straining
       if(p > 0.6){
-        const yy = -136 + ((t*1.2) % 26)/26*12;
+        const yy = -150 + ((t*1.2) % 26)/26*12;
         ctx.lineWidth = 3; ctx.beginPath();
-        ctx.moveTo(hx + 46, yy - 8); ctx.quadraticCurveTo(hx + 53, yy + 2, hx + 46, yy + 4); ctx.quadraticCurveTo(hx + 39, yy + 2, hx + 46, yy - 8);
+        ctx.moveTo(hx + 44, yy - 8); ctx.quadraticCurveTo(hx + 51, yy + 2, hx + 44, yy + 4); ctx.quadraticCurveTo(hx + 37, yy + 2, hx + 44, yy - 8);
         inked('#9fe3ff');
       }
       ctx.restore();

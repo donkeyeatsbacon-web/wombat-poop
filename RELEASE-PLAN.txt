@@ -257,6 +257,14 @@ Phase D - Final check (release candidate, 1-2 days)
        [ ] Emoji (I7) - needs real devices; check during Phase A.
     -> Then Phase B
 
+  Art pass (added after sprint 2)  [DONE 2026-10-13, branch art-toon]
+       [x] Cartoon-outline style: thick dark outlines and flat colour on the
+           wombats, poops, platforms, lettuce, grass and campaign map.
+       [x] New wombat drawn from a reference photo ("Bush": pointed ears,
+           flat nose, no neck, pear-shaped body, claws) with cartoon eyes
+           and brows; grey-brown player, darker rivals, warmer mates.
+       Check during Phase A: how it reads on small phones and on the map.
+
   Sprint 3 - The campaign
     8. Invader positions around the burrow (I2)
     9. Buff/debuff explanations + new Trampled icon (I3)
