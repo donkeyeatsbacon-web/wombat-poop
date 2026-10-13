@@ -105,3 +105,7 @@ node tools/compare.js
 
 It replays both versions side by side and points to the first frame where they
 differ. See [tools/README.md](tools/README.md).
+
+## License
+
+MIT, see [LICENSE](LICENSE).
