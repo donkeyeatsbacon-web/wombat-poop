@@ -73,7 +73,7 @@ I1. [DONE] The game has no sound.
     that's remembered, and audio must start only after the first tap
     (browser autoplay rules).
 
-I2. Invading rivals pile up on the burrow (campaign).
+I2. [DONE] Invading rivals pile up on the burrow (campaign).
     A rival that finishes its march sits exactly on the burrow
     (nodePos() with march = 1 returns the home position). Two or three
     invaders draw on top of each other with overlapping labels, and a tap
@@ -81,7 +81,7 @@ I2. Invading rivals pile up on the burrow (campaign).
     selected.
     Fix: give each invader its own spot in a ring around the burrow.
 
-I3. Buffs and debuffs are never explained in-game (campaign).
+I3. [DONE] Buffs and debuffs are never explained in-game (campaign).
     The overworld shows only their emoji at the bottom. The descriptions
     ("Wider catch platform"...) exist in BUFFS/DEBUFFS but are never
     displayed. The "Trampled" debuff also uses 😤, the same icon as
@@ -95,7 +95,7 @@ I4. [DONE] The on-page hint text sits over the game and assumes a keyboard.
     Fix: show touch or keyboard wording depending on the device, and move
     it into the canvas's own title screen or hide it once play starts.
 
-I5. A campaign loss is abrupt.
+I5. [DONE] A campaign loss is abrupt.
     In endless mode the tower falls apart. In a campaign level it instantly
     shows "Failed!" with the tower still standing. The campaign also has no
     way to give up a level and go back to the map.
@@ -125,7 +125,7 @@ P2. No "add to home screen" support (web app manifest + icons). With an
     offline service worker it would play like an app on phones.
 P3. [DONE in sprint 1] Endless mode hides the mouse cursor (cursor: none) on
     the menus and game-over screen too, not just during play.
-P4. The campaign has only 4 mate names and 4 rival names, so long seasons
+P4. [DONE] The campaign has only 4 mate names and 4 rival names, so long seasons
     repeat them a lot.
 P5. The endless high score is a single personal best. A short local top-5
     gives players a reason to keep going.
@@ -270,11 +270,16 @@ Phase D - Final check (release candidate, 1-2 days)
            and brows; grey-brown player, darker rivals, warmer mates.
        Check during Phase A: how it reads on small phones and on the map.
 
-  Sprint 3 - The campaign
-    8. Invader positions around the burrow (I2)
-    9. Buff/debuff explanations + new Trampled icon (I3)
-   10. Campaign topple animation + retreat option (I5)
-   11. More wombat names (P4)
+  Sprint 3 - The campaign  [DONE 2026-10-13]
+    8. [x] Invaders stop on a ring around the burrow, one per trail (I2)
+    9. [x] Effect chips under the top bar (tap to explain), the full list
+           in the map menu, and Trampled gets a 🦶 icon (I3)
+   10. [x] Endless-style topple animation, and a result card that says why
+           (toppled / out of toilet paper); Retreat on the pause screen (I5)
+   11. [x] 12 names each for mates and rivals, no duplicates on the map (P4)
+       [x] Found and fixed: a mate moving into a rival's spot vanished from
+           the map, and the save then failed its check and was deleted.
+           Old saves are repaired when loaded.
     -> Then Phase C balance pass
 
   Sprint 4 - Release polish

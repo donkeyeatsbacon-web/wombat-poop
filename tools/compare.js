@@ -231,7 +231,8 @@ function run(oldDir, newDir, page, frames, seed, skilled, hz = 60){
     for(const [k, re] of [['lettuce', /fs=#(?:a6e06a|b2e875)/], ['diarrheaDrop', /fs=#(?:6f4e1a|7a5520)/], ['puddle', /#8a6a2a/],
         ['level2+', /Lv [2-9]/], ['topple', /TIMBERRR/], ['outOfTP', /Out of toilet paper/],
         ['paused', /Paused/], ['tippy', /TIPPY/], ['overworld', /Home Burrow/], ['levelHUD', /Impress|Out-stack/],
-        ['banked', /Stack complete/], ['won', /Impressed!|Driven off!/], ['failed', /Failed!/],
+        ['banked', /Stack complete/], ['won', /Impressed!|Driven off!/], ['failed', /Failed!|TIMBERRR|Out of toilet paper!/],
+        ['campaignTopple', /The tower toppled/], ['retreated', /backed down|slipped away/],
         ['heckle', /heckling/], ['continue', /Continue — Day/], ['seasonOver', /Season won|overran/],
         ['shrunk', /fs=#eaf6ff/]]){
       if(re.test(txt) || (k==='lettuce'||k==='diarrheaDrop'||k==='puddle'||k==='shrunk') && la.some(l => re.test(l))) seen.add(k);

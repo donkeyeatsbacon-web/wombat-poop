@@ -40,7 +40,11 @@ there and play a stacking level against it.
   lettuce at your wombat.
 - **Win the season** by reaching 100 charm; **lose it** if threat reaches 100.
 - **Buffs and debuffs** change your platform width, how fast poops fall, your
-  toilet paper and how easily the tower topples.
+  toilet paper and how easily the tower topples. They show as chips under the
+  top bar: tap one to see what it does, or open the ☰ menu for the full list.
+- **Retreat** from a level on the pause screen if it's going badly: the day
+  passes, but it doesn't count as a loss (backing down from a rival still adds
+  a little threat).
 
 Progress saves automatically after each day, so you can close the page and
 **Continue** later.

@@ -44,7 +44,7 @@
     { key:'steady',icon:'🎯', name:'Steady Paws', desc:'Tower topples less easily' },
   ];
   const DEBUFFS = [
-    { key:'narrow',icon:'😤', name:'Trampled', desc:'Narrower catch platform' },
+    { key:'narrow',icon:'🦶', name:'Trampled', desc:'Narrower catch platform' },
     { key:'fast',  icon:'⚡', name:'Rattled',  desc:'Plops fall faster' },
     { key:'lesstp',icon:'💔', name:'Shaken',   desc:'-1 toilet paper' },
     { key:'dizzy', icon:'🌀', name:'Dizzy',    desc:'Tower topples more easily' },
@@ -72,8 +72,10 @@
   let womb = { x:W/2, y:H*0.52+30, dir:1, bob:0 };
   let travel = null, toast = null;
 
-  const MATE_NAMES  = ['Wanda','Winnie','Wendy','Willa'];
-  const RIVAL_NAMES = ['Bruiser','Chomps','Tank','Grunt'];
+  // The first four of each greet a new season; newcomers draw from the rest.
+  const MATE_NAMES  = ['Wanda','Winnie','Wendy','Willa','Matilda','Bindi','Pearl','Daisy','Tilly','Mabel','Rosie','Hazel'];
+  const RIVAL_NAMES = ['Bruiser','Chomps','Tank','Grunt','Digger','Boof','Crusher','Stomper','Gnasher','Bazza','Thumper','Knuckles'];
+  const INVADE_R = 152;   // invading rivals stop on a ring this far from the burrow, each on its own trail
 
   function buildMap(){
     nodes = []; wave = 0; encounters = 0;
@@ -90,7 +92,8 @@
     ];
     let mi=0, ri=0;
     for(const s of spots){
-      // the point each spot heads for as it leaves the territory
+      // the point a mate heads for as she leaves the territory. Every spot
+      // gets one, since a rival's spot can later be taken by a mate.
       const ax = cx + (s.x-cx)*1.5, ay = cy + (s.y-cy)*1.5;
       if(s.type==='mate'){
         // mates wander off on their own schedule — woo them before they go
@@ -100,7 +103,7 @@
         mi++;
       } else {
         // rivals march inward on their own schedule — staggered starts & speeds
-        nodes.push({ homeX:s.x, homeY:s.y, x:s.x, y:s.y, type:'rival',
+        nodes.push({ homeX:s.x, homeY:s.y, awayX:ax, awayY:ay, x:s.x, y:s.y, type:'rival',
           name:RIVAL_NAMES[ri%RIVAL_NAMES.length], target:5, stacks:3, state:'open',
           march:0, speed:[0.34,0.26,0.20][ri%3], delay:[0,1,3][ri%3], invader:false });
         ri++;
@@ -109,10 +112,14 @@
     womb.x = homeNode.x; womb.y = homeNode.y + 30;
   }
 
-  // where a node currently stands: rivals close in on the burrow, mates drift away
+  // where a node currently stands: rivals close in on the burrow (stopping on
+  // a ring around it, so invaders don't pile up on one spot), mates drift away
   function nodePos(n){
-    const tx = n.type==='rival' ? homeNode.x : n.awayX;
-    const ty = n.type==='rival' ? homeNode.y : n.awayY;
+    let tx = n.awayX, ty = n.awayY;
+    if(n.type==='rival'){
+      const dx = n.homeX - homeNode.x, dy = n.homeY - homeNode.y, d = Math.hypot(dx, dy) || 1;
+      tx = homeNode.x + dx/d*INVADE_R; ty = homeNode.y + dy/d*INVADE_R;
+    }
     return { x: n.homeX + (tx - n.homeX)*n.march, y: n.homeY + (ty - n.homeY)*n.march };
   }
   function invaders(){ return nodes.filter(n=>n.type==='rival' && n.invader); }
@@ -151,7 +158,10 @@
     wave = Math.floor(encounters/6);              // the habitat toughens as the season goes on
     const outgoing = n.name;
     n.type    = Math.random() < 0.6 ? 'rival' : 'mate';
-    const pool = (n.type==='mate'?MATE_NAMES:RIVAL_NAMES).filter(nm => nm !== outgoing);
+    const names = n.type==='mate' ? MATE_NAMES : RIVAL_NAMES;
+    const taken = new Set(nodes.map(m => m.name));          // includes the outgoing wombat
+    let pool = names.filter(nm => !taken.has(nm));
+    if(!pool.length) pool = names.filter(nm => nm !== outgoing);
     n.name    = pool[(Math.random()*pool.length)|0];   // clearly a different wombat
     n.target  = (n.type==='mate'?4:5) + Math.floor(wave/2);
     n.stacks  = (n.type==='mate'?2:3) + Math.floor(wave/2);
@@ -239,6 +249,15 @@
     encounters = Number.isFinite(d.encounters) ? d.encounters : 0;
     nodes      = d.nodes.map(n=>({ ...n, invader: !!n.invader }));
     homeNode   = nodes.find(n=>n.type==='home');
+    // Saves from before the fixes: rival spots had no walk-away point, and
+    // invaders all stood on the burrow. Fill in the one, re-place the other.
+    for(const n of nodes){
+      if(n.type==='home') continue;
+      if(!Number.isFinite(n.awayX) || !Number.isFinite(n.awayY)){
+        n.awayX = homeNode.x + (n.homeX - homeNode.x)*1.5; n.awayY = homeNode.y + (n.homeY - homeNode.y)*1.5;
+      }
+      if(n.march > 0){ const p = nodePos(n); n.x = p.x; n.y = p.y; }
+    }
     womb.x = homeNode.x; womb.y = homeNode.y + 30;
     L = null; travel = null; toast = null;
     mode = MODE.OVERWORLD;
@@ -271,7 +290,7 @@
     damping: 0.93
   };
   const hooks = {
-    onMiss: () => { if(L.misses>=L.maxMiss && !L.result){ L.result='lose'; L.resultT=0; WB.sfx('sad'); } },
+    onMiss: () => { if(L.misses>=L.maxMiss && !L.result){ L.result='lose'; L.loseWhy='misses'; L.resultT=0; WB.sfx('sad'); } },
     nextPoopAt: t => t + rand(70,150)
   };
 
@@ -310,9 +329,26 @@
     WB.updateLettuceAndDiarrhea(L, t);
   }
 
+  // The tower goes over, like in endless mode: the pile and anything in the air
+  // tumbles straight down, then the result shows.
+  function startTopple(){
+    L.toppling = true;
+    for(const c of L.stack){
+      c.x = L.plat.x + c.off;
+      c.vx = rand(-0.5, 0.5); c.vfall = rand(0, 1.2); c.spin = rand(-0.14, 0.14);
+    }
+    for(const p of L.plops){ p.vx = rand(-0.5, 0.5); p.vy = Math.max(p.vy||0, 0.5); p.vr = (p.vr||0) + rand(-0.14, 0.14); }
+  }
+  function updateTopple(){
+    for(const c of L.stack){ c.vfall += 0.55; c.y += c.vfall; c.x += c.vx; c.rot = (c.rot||0) + c.spin; }
+    for(const p of L.plops){ p.vy += WB.GRAV*3; p.y += p.vy; p.x += (p.vx||0); p.rot = (p.rot||0) + (p.vr||0); }
+  }
+  const TOPPLE_FRAMES = 50;   // how long the fall plays before the result card
+
   function updateLevel(){
     if(L.result){ L.resultT++; if(L.shake>0) L.shake*=0.85;
-      if(L.resultT>70) endLevel(L.result==='win'); return; }
+      if(L.toppling) updateTopple();
+      if(L.resultT > (L.toppling ? TOPPLE_FRAMES + 70 : 70)) endLevel(L.result==='win'); return; }
     if(L.banking>0){
       L.banking--;
       for(const c of L.stack) c.y -= 3;
@@ -334,7 +370,9 @@
     WB.stepPlops(L);
 
     const effOff = WB.updateStack(L, t);
-    if(effOff !== null && Math.abs(effOff) > L.plat.w/2 + L.margin){ L.result='lose'; L.resultT=0; L.shake=16; WB.sfx('topple'); }
+    if(effOff !== null && Math.abs(effOff) > L.plat.w/2 + L.margin){
+      L.result='lose'; L.loseWhy='topple'; L.resultT=0; L.shake=16; WB.sfx('topple'); startTopple();
+    }
     if(!L.result && L.stack.length && WB.stackTopWorldY(L) <= L.goalY){
       L.stacksDone++; L.banking=40;
       WB.sfx('levelup'); tutorialDone();
@@ -345,9 +383,13 @@
     WB.updateParticles(L.particles);
   }
 
-  function endLevel(success){
+  function endLevel(success, retreat){
     const node = L.node;
-    if(node.type==='mate'){
+    if(retreat){
+      // backing out costs the day, but not the full price of a loss
+      if(node.type==='mate') showToast('You slipped away from '+node.name+'. No harm done, but the day is gone.');
+      else { player.threat = clamp(player.threat+6,0,THREAT_MAX); showToast('You backed down from '+node.name+'.  +6 threat'); }
+    } else if(node.type==='mate'){
       if(success){
         player.charm = clamp(player.charm+22,0,CHARM_GOAL);
         const b = grantRandom(BUFFS, player.buffs);
@@ -421,9 +463,14 @@
   // ---------- Pause / menu ----------
   // In a level the round button pauses; on the map it opens the same menu.
   const PAUSE_BTN  = { x:W-38, y:104, r:22 };
-  const BTN_RESUME = { x:W/2-150, y:H*0.40,    w:300, h:62 };
-  const BTN_QUIT   = { x:W/2-150, y:H*0.40+80, w:300, h:62 };
-  const BTN_SOUND  = { x:W/2-150, y:H*0.40+160, w:300, h:62 };
+  // the pause screen's buttons, top to bottom; Retreat only inside a level
+  function menuItems(){
+    const items = [{ id:'resume', label:'▶ Resume', fill:'#7bed9f', edge:'#14532d' }];
+    if(mode===MODE.LEVEL) items.push({ id:'retreat', label:'🏳 Retreat', fill:'#ffd98a', edge:'#7a3d12' });
+    items.push({ id:'quit',  label:'🏠 Main menu', fill:'#fff8e7', edge:'#7a3d12' },
+               { id:'sound', label: WB.sound.muted() ? '🔇 Sound: off' : '🔊 Sound: on', fill:'#fff8e7', edge:'#7a3d12' });
+    return items.map((it, i) => ({ ...it, b:{ x:W/2-150, y:H*0.36 + i*78, w:300, h:62 } }));
+  }
   const BTN_MENU   = { x:18, y:18, w:136, h:48 };     // intro + end-of-season screens
   const SOUND_BTN  = PAUSE_BTN;                       // intro + end-of-season screens
   const onTitleScreen = () => mode===MODE.INTRO || mode===MODE.WIN || mode===MODE.LOSE;
@@ -446,15 +493,27 @@
   const canPause = () => (mode===MODE.LEVEL && L && !L.result) || mode===MODE.OVERWORLD;
 
   function drawPauseMenu(){
-    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(0,0,W,H);
     ctx.textAlign='center'; ctx.fillStyle='#fff'; ctx.font='bold 48px "Comic Neue", "Comic Sans MS", cursive';
-    ctx.fillText(mode===MODE.LEVEL ? '⏸ Paused' : '☰ Menu', W/2, H*0.32);
-    drawButton(BTN_RESUME, '▶ Resume', '#7bed9f', '#14532d');
-    drawButton(BTN_QUIT,   '🏠 Main menu', '#fff8e7', '#7a3d12');
-    drawButton(BTN_SOUND,  WB.sound.muted() ? '🔇 Sound: off' : '🔊 Sound: on', '#fff8e7', '#7a3d12');
+    ctx.fillText(mode===MODE.LEVEL ? '⏸ Paused' : '☰ Menu', W/2, H*0.30);
+    const items = menuItems();
+    for(const it of items) drawButton(it.b, it.label, it.fill, it.edge);
+    const last = items[items.length-1].b;
+    let y = last.y + last.h + 36;
     ctx.fillStyle='#fff'; ctx.font='18px "Comic Neue", "Comic Sans MS", cursive';
-    ctx.fillText(mode===MODE.LEVEL ? 'Your season is saved up to the start of today — this level will replay.'
-                                   : 'Your season is saved.', W/2, BTN_SOUND.y+BTN_SOUND.h+40);
+    if(mode===MODE.LEVEL){
+      ctx.fillText('Retreat ends this level: the day passes, but it isn\'t counted as a loss.', W/2, y); y += 24;
+      ctx.fillText('Main menu keeps your season as it was this morning; the level replays.', W/2, y);
+    } else {
+      ctx.fillText('Your season is saved.', W/2, y);
+      // what each active buff and debuff does
+      const effects = [...player.buffs.map(k => BUFFS.find(x => x.key===k)), ...player.debuffs.map(k => DEBUFFS.find(x => x.key===k))];
+      if(effects.length){
+        y += 44; ctx.font='bold 20px "Comic Neue", "Comic Sans MS", cursive'; ctx.fillText('Active effects', W/2, y);
+        ctx.font='18px "Comic Neue", "Comic Sans MS", cursive';
+        for(const e of effects){ y += 28; ctx.fillText(e.icon+'  '+e.name+': '+e.desc.toLowerCase(), W/2, y); }
+      }
+    }
     ctx.textAlign='left';
   }
   function quitToMenu(){ saveGame(); WB.toMenu(); }
@@ -610,14 +669,25 @@
     ctx.fillStyle='#2d3a12'; ctx.font='bold 15px "Comic Neue", "Comic Sans MS", cursive'; ctx.textAlign='center';
     ctx.fillText('Day '+player.day, W/2, 26);
     const inv = invaders().length;
-    if(inv){ ctx.fillStyle='#c0392b'; ctx.font='bold 13px "Comic Neue", "Comic Sans MS", cursive';
-      ctx.fillText('⚠ '+inv+' rival'+(inv>1?'s':'')+' in your territory', W/2, 46); }
-    ctx.textAlign='left'; ctx.font='20px serif';
-    let bx=20; for(const k of player.buffs){ ctx.fillText(BUFFS.find(x=>x.key===k).icon, bx, H-14); bx+=26; }
-    ctx.textAlign='right';
-    let dx=W-20; for(const k of player.debuffs){ ctx.fillText(DEBUFFS.find(x=>x.key===k).icon, dx, H-14); dx-=26; }
+    // below the HUD box, between the effect chips, so it doesn't run into the meters
+    if(inv){ ctx.fillStyle='#c0392b'; ctx.font='bold 16px "Comic Neue", "Comic Sans MS", cursive';
+      ctx.lineWidth=4; ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineJoin='round';
+      const msg='⚠ '+inv+' rival'+(inv>1?'s':'')+' in your territory';
+      ctx.strokeText(msg, W/2, 98); ctx.fillText(msg, W/2, 98); }
+    // buffs on the left, debuffs on the right (clear of the menu button); tap one to see what it does
+    effectChips = [];
+    player.buffs.forEach((k, i) => effectChips.push({ e: BUFFS.find(x=>x.key===k), good: true, b: { x: 20 + i*44, y: 76, w: 38, h: 34 } }));
+    player.debuffs.forEach((k, i) => effectChips.push({ e: DEBUFFS.find(x=>x.key===k), good: false, b: { x: W - 110 - i*44, y: 76, w: 38, h: 34 } }));
+    ctx.textAlign='center'; ctx.font='20px serif';
+    for(const c of effectChips){
+      ctx.fillStyle = c.good ? 'rgba(235,255,225,.92)' : 'rgba(255,232,228,.92)';
+      ctx.strokeStyle = WB.INK; ctx.lineWidth = 2.5;
+      roundRect(c.b.x, c.b.y, c.b.w, c.b.h, 10); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#000'; ctx.fillText(c.e.icon, c.b.x + c.b.w/2, c.b.y + 25);
+    }
     ctx.textAlign='left';
   }
+  let effectChips = [];
 
   // first level only: what the goal line means
   function drawTutorial(){
@@ -639,7 +709,7 @@
     drawGoalLine(L.goalY);
     if(tutorial && !L.banking && !L.result) drawTutorial();
     drawPlatform(L.plat);
-    drawStack(L, true);
+    drawStack(L, !L.toppling);
     for(const p of L.plops) drawPoop(p.x,p.y,p.w,p.h,p.rot,p.squish,p.hue);
     drawDiarrhea(L.diarrhea, L.camOffset);
     for(const s of L.stars){ ctx.globalAlpha=clamp(s.life/20,0,1); ctx.fillStyle=s.col;
@@ -685,14 +755,16 @@
         ctx.fillText((L.stacksNeeded-L.stacksDone)+' to go — start a fresh stack!', W/2, H*0.42+34); }
       ctx.textAlign='left';
     }
-    if(L.result){
+    if(L.result && (!L.toppling || L.resultT > TOPPLE_FRAMES)){
       ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,W,H);
       ctx.textAlign='center';
       const win=L.result==='win';
+      const title = win ? (L.node.type==='mate' ? '💗 Impressed!' : '😤 Driven off!')
+                        : (L.loseWhy==='misses' ? '🧻 Out of toilet paper!' : '🗼 TIMBERRR!');
       ctx.fillStyle=win?'#7bed9f':'#ff8a8a'; ctx.font='bold 44px "Comic Neue", "Comic Sans MS", cursive';
-      ctx.fillText(win?(L.node.type==='mate'?'💗 Impressed!':'😤 Driven off!'):'🗼 Failed!', W/2, H/2-10);
+      ctx.fillText(title, W/2, H/2-10);
       ctx.fillStyle='#fff'; ctx.font='20px "Comic Neue", "Comic Sans MS", cursive';
-      ctx.fillText(win?'Well stacked!':'The tower didn\'t hold…', W/2, H/2+28);
+      ctx.fillText(win ? 'Well stacked!' : L.loseWhy==='misses' ? 'Too many poops hit the ground…' : 'The tower toppled…', W/2, H/2+28);
       ctx.textAlign='left';
     }
   }
@@ -735,9 +807,12 @@
   const canvasPt = (cx,cy) => WB.canvasPt(cv, cx, cy);
   function onDown(px,py){
     if(paused){
-      if(WB.hitBtn(BTN_RESUME,px,py)){ paused = false; WB.sfx('click'); }
-      else if(WB.hitBtn(BTN_QUIT,px,py)) quitToMenu();
-      else if(WB.hitBtn(BTN_SOUND,px,py)) WB.sound.toggle();
+      const hit = menuItems().find(it => WB.hitBtn(it.b, px, py));
+      if(!hit) return;
+      if(hit.id==='resume'){ paused = false; WB.sfx('click'); }
+      else if(hit.id==='retreat'){ paused = false; WB.sfx('click'); endLevel(false, true); }
+      else if(hit.id==='quit') quitToMenu();
+      else if(hit.id==='sound') WB.sound.toggle();
       return;
     }
     if(canPause() && WB.hitRound(PAUSE_BTN,px,py)){ paused = true; WB.sfx('click'); return; }
@@ -755,6 +830,8 @@
     }
     if(mode===MODE.WIN||mode===MODE.LOSE){ newGame(); return; }
     if(mode===MODE.OVERWORLD){
+      const chip = effectChips.find(c => WB.hitBtn(c.b, px, py));
+      if(chip){ showToast(chip.e.icon+'  '+chip.e.name+' ('+(chip.good ? 'buff' : 'debuff')+'): '+chip.e.desc.toLowerCase()); WB.sfx('click'); return; }
       for(const n of nodes){ if(n.type==='home'||n.state!=='open') continue;
         if(Math.hypot(px-n.x,py-n.y)<42){
           travel={ node:n, fromX:womb.x, fromY:womb.y, toX:n.x, toY:n.y+30, p:0 };
