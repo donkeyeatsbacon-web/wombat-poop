@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>💩 Combat Wombat: Poop Stacker 💩</title>
-<link rel="stylesheet" href="shared/base.css?v=be0a1df0">
+<link rel="stylesheet" href="shared/base.css?v=30c6dc38">
 <style>
   canvas { image-rendering: optimizeQuality; }
   #hint { font-size: 14px; }
@@ -39,7 +39,7 @@
 </head>
 <body>
 <div id="wrap"><canvas id="game" width="720" height="960"></canvas></div>
-<div id="hint">← → or A/D or mouse/finger to move &nbsp;·&nbsp; P to pause &nbsp;·&nbsp; catch the plops, don't let the tower topple!</div>
+<div id="hint"></div>
 <div id="saveOverlay">
   <div id="saveBox">
     <div id="saveTitle">🏆 New personal best!</div>
@@ -51,10 +51,11 @@
     </div>
   </div>
 </div>
-<script src="shared/core.js?v=c6ad66ef"></script>
-<script src="shared/art.js?v=7e58af87"></script>
-<script src="shared/physics.js?v=e4bbda1b"></script>
-<script src="shared/wombat.js?v=161c4e3d"></script>
+<script src="shared/core.js?v=f6589e31"></script>
+<script src="shared/sound.js?v=945a409e"></script>
+<script src="shared/art.js?v=ef483769"></script>
+<script src="shared/physics.js?v=ce40dcd2"></script>
+<script src="shared/wombat.js?v=4b3f92f6"></script>
 <script>
 (() => {
   const { W, H, GRAV, rand, clamp } = WB;
@@ -101,8 +102,18 @@
     restoreMax: 0.06, restoreInstab: 0.012, restoreMin: 0.02,
     damping: 0.93
   };
+  // First-ever game: point out the catch platform until the first catch.
+  const TUTORIAL_KEY = 'wombatTutorialDone';
+  let tutorial = true;
+  try { tutorial = localStorage.getItem(TUTORIAL_KEY) !== '1'; } catch(e){}
+  function tutorialDone(){
+    if(!tutorial) return;
+    tutorial = false;
+    try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch(e){}
+  }
+
   const hooks = {
-    onSettle: p => { score += Math.max(1, Math.round(p.w/12)); },
+    onSettle: p => { score += Math.max(1, Math.round(p.w/12)); tutorialDone(); },
     onMiss: () => { if(S.misses >= maxMiss) endGame(); },
     // poops come quicker as the score climbs
     nextPoopAt: t => t + clamp(150 - score*0.6, 70, 150) + rand(-25, 55),
@@ -118,6 +129,7 @@
     input.keys[e.key.toLowerCase()] = true;
     if (e.key === ' ' || ['arrowleft','arrowright','arrowup','arrowdown'].includes(e.key.toLowerCase())) e.preventDefault();
     if ((e.key.toLowerCase() === 'p' || e.key === 'Escape') && state === STATE.PLAY) paused = !paused;
+    if (e.key.toLowerCase() === 'm') WB.sound.toggle();
     if ((state === STATE.MENU || state === STATE.OVER) && (e.key === ' ' || e.key === 'Enter')) start();
   });
   window.addEventListener('keyup', e => input.keys[e.key.toLowerCase()] = false);
@@ -126,22 +138,27 @@
   const PAUSE_BTN  = { x: W-38, y: 118, r: 22 };                  // during play, top right
   const BTN_RESUME = { x: W/2-150, y: H*0.40,    w: 300, h: 62 }; // pause screen
   const BTN_QUIT   = { x: W/2-150, y: H*0.40+80, w: 300, h: 62 };
+  const BTN_SOUND  = { x: W/2-150, y: H*0.40+160, w: 300, h: 62 };
   const BTN_MENU   = { x: 18, y: 18, w: 136, h: 48 };              // title + game-over screens
+  const SOUND_BTN  = PAUSE_BTN;                                     // title + game-over screens
 
   function onDown(x, y){
     if(entering) return;
     if(state === STATE.PLAY){
       if(paused){
-        if(WB.hitBtn(BTN_RESUME, x, y)) paused = false;
+        if(WB.hitBtn(BTN_RESUME, x, y)){ paused = false; WB.sfx('click'); }
         else if(WB.hitBtn(BTN_QUIT, x, y)) WB.toMenu();
+        else if(WB.hitBtn(BTN_SOUND, x, y)) WB.sound.toggle();
         return;
       }
-      if(WB.hitRound(PAUSE_BTN, x, y)){ paused = true; return; }
+      if(WB.hitRound(PAUSE_BTN, x, y)){ paused = true; WB.sfx('click'); return; }
       input.pointerX = x;
       return;
     }
     input.pointerX = x;
-    if((state === STATE.MENU || state === STATE.OVER) && WB.hitBtn(BTN_MENU, x, y)) WB.toMenu();
+    const onMenuScreen = state === STATE.MENU || state === STATE.OVER;
+    if(onMenuScreen && WB.hitRound(SOUND_BTN, x, y)) WB.sound.toggle();
+    else if(onMenuScreen && WB.hitBtn(BTN_MENU, x, y)) WB.toMenu();
     else start();
   }
   const canvasX = clientX => WB.canvasPt(cv, clientX, 0).x;
@@ -152,6 +169,10 @@
   cv.addEventListener('mouseleave', () => input.pointerX = null);
 
   let paused = false;
+  const hintEl = document.getElementById('hint');
+  hintEl.innerHTML = WB.isTouch
+    ? 'Drag to move &nbsp;·&nbsp; ⏸ to pause &nbsp;·&nbsp; catch the plops, don\'t let the tower topple!'
+    : '← → / A D / mouse to move &nbsp;·&nbsp; P to pause &nbsp;·&nbsp; M to mute &nbsp;·&nbsp; catch the plops, don\'t let the tower topple!';
   // switching away mid-game pauses it, so nothing falls while nobody's looking
   WB.onAway(() => { if(state === STATE.PLAY) paused = true; });
 
@@ -170,6 +191,7 @@
   const saveSub     = document.getElementById('saveSub');
 
   function endGame(){
+    if(state !== STATE.OVER) WB.sfx(score > highScore ? 'win' : 'sad');
     state = STATE.OVER;
     best = Math.max(best, score);
     if(score > highScore){
@@ -214,6 +236,7 @@
       p.vr = (p.vr||0) + rand(-0.14, 0.14);
     }
     S.shake = 16;
+    WB.sfx('topple');
   }
 
   function updateTopple(){
@@ -264,6 +287,7 @@
       else {
         const edge = S.plat.w/2 + 22;                    // topple once it clears the platform edge
         danger += (clamp(Math.abs(effOff)/edge, 0, 1) - danger) * 0.2;
+        if(danger > 0.8) WB.sfx('creak');                // the tower groans before it goes
         if(Math.abs(effOff) > edge) beginTopple(effOff > 0 ? 1 : -1);
       }
 
@@ -273,6 +297,7 @@
         const stackTopScreen = WB.stackTopWorldY(S) + S.camOffset;
         if(stackTopScreen <= goalScreenY){
           raising = true; level++;
+          WB.sfx('levelup');
           S.raiseBaseY = WB.stackTopWorldY(S);           // reset the wobble reference for the new level
           camTarget = (H - RAISE_BAND) - WB.stackTopWorldY(S);
           jumpTimer = 32; raiseDelay = 16;               // wombat leaps up, THEN the camera follows
@@ -320,21 +345,21 @@
     ctx.save();
     ctx.textAlign='left';
     ctx.fillStyle='#2d5016';
-    ctx.font='bold 40px "Comic Sans MS", cursive';
+    ctx.font='bold 40px "Comic Neue", "Comic Sans MS", cursive';
     ctx.fillText('💩 ' + score, 22, 52);
     // misses
     ctx.textAlign='right';
-    ctx.font='30px "Comic Sans MS", cursive';
+    ctx.font='30px "Comic Neue", "Comic Sans MS", cursive';
     let hearts='';
     for(let i=0;i<maxMiss;i++) hearts += i<maxMiss-S.misses ? '🧻' : '❌';
     ctx.fillText(hearts, W-22, 48);
     ctx.textAlign='left';
-    ctx.font='20px "Comic Sans MS", cursive';
+    ctx.font='20px "Comic Neue", "Comic Sans MS", cursive';
     ctx.fillStyle='#3a6b1f';
     ctx.fillText('height: ' + S.stack.length, 22, 82);
     // level (climbs each time you reach the goal line)
     ctx.textAlign='right';
-    ctx.font='bold 22px "Comic Sans MS", cursive';
+    ctx.font='bold 22px "Comic Neue", "Comic Sans MS", cursive';
     ctx.fillStyle='#2d5016';
     ctx.fillText('🏔 Lv ' + level, W-22, 80);
     ctx.textAlign='left';
@@ -349,7 +374,7 @@
     ctx.save();
     // label
     ctx.textAlign='left';
-    ctx.font='bold 13px "Comic Sans MS", cursive';
+    ctx.font='bold 13px "Comic Neue", "Comic Sans MS", cursive';
     ctx.fillStyle='#2d5016';
     ctx.fillText('🌀 WOBBLE-O-METER', x, y - 5);
     // track
@@ -375,10 +400,23 @@
     // danger warning
     if(d > 0.8 && Math.sin(t*0.4) > 0){
       ctx.textAlign='left';
-      ctx.font='bold 15px "Comic Sans MS", cursive';
+      ctx.font='bold 15px "Comic Neue", "Comic Sans MS", cursive';
       ctx.fillStyle='#e11d1d';
       ctx.fillText('⚠ TIPPY!!', x + w + 10, y + h - 3);
     }
+    ctx.restore();
+  }
+
+  // first game only: show where to catch, riding along with the platform
+  function drawTutorial(){
+    const bob = Math.sin(t*0.12) * 4;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 24px "Comic Neue", "Comic Sans MS", cursive';
+    ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.fillStyle = '#7a3d12';
+    const msg = WB.isTouch ? '⬅ drag to catch the poop! ➡' : '⬅ move to catch the poop! ➡';
+    const x = clamp(S.plat.x, 190, W - 190), y = S.plat.y - 52 + bob;
+    ctx.strokeText(msg, x, y); ctx.fillText(msg, x, y);
     ctx.restore();
   }
 
@@ -418,6 +456,7 @@
     drawStack(S, state !== STATE.TOPPLE && state !== STATE.OVER);
     // don't draw mid-air poops once the game is over (they'd hang frozen)
     if(state !== STATE.OVER) for(const p of S.plops) drawPoop(p.x,p.y,p.w,p.h,p.rot,p.squish,p.hue);
+    if(state === STATE.PLAY && tutorial) drawTutorial();
     ctx.restore();
     drawDiarrhea(S.diarrhea, S.camOffset);   // hot drops falling onto the tower
     // the wombat stays at the top of the screen as the poop source
@@ -432,36 +471,42 @@
     ctx.restore();
 
     if(state === STATE.PLAY && !paused) drawRoundButton(PAUSE_BTN, 'pause');
+    if(state === STATE.MENU || state === STATE.OVER) drawRoundButton(SOUND_BTN, WB.sound.muted() ? 'muted' : 'sound');
 
     if(state === STATE.MENU){
       centerText([
-        {text:'💩 COMBAT WOMBAT 💩', font:'bold 52px "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:56},
-        {text:'POOP STACKER', font:'bold 40px "Comic Sans MS", cursive', color:'#ffe14d', stroke:true, gap:80},
-        {text:'Catch the plops. Stack \'em high.', font:'24px "Comic Sans MS", cursive', gap:38},
-        {text:'Don\'t let the tower topple!', font:'24px "Comic Sans MS", cursive', gap:80},
-        {text:'▶ Click / Tap / Space to start', font:'bold 28px "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
+        {text:'💩 COMBAT WOMBAT 💩', font:'bold 52px "Comic Neue", "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:56},
+        {text:'POOP STACKER', font:'bold 40px "Comic Neue", "Comic Sans MS", cursive', color:'#ffe14d', stroke:true, gap:80},
+        {text:'Catch the plops. Stack \'em high.', font:'24px "Comic Neue", "Comic Sans MS", cursive', gap:38},
+        {text:'Don\'t let the tower topple!', font:'24px "Comic Neue", "Comic Sans MS", cursive', gap:80},
+        {text:'▶ Click / Tap / Space to start', font:'bold 28px "Comic Neue", "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
       ]);
       drawButton(BTN_MENU, '◂ Menu', '#fff8e7', '#7a3d12', 22);
     }
     if(state === STATE.OVER){
       centerText([
-        {text: S.misses>=maxMiss ? '🧻 Out of toilet paper!' : '🗼 TIMBERRR!', font:'bold 46px "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:70},
-        {text:'Score: ' + score, font:'bold 40px "Comic Sans MS", cursive', color:'#ffe14d', stroke:true, gap:46},
-        {text:'Best: ' + Math.max(best,highScore) + (highName ? ' (' + highName + ')' : ''), font:'26px "Comic Sans MS", cursive', gap:36},
-        {text:'Reached level ' + level + ' · ' + S.stack.length + ' plops', font:'22px "Comic Sans MS", cursive', gap:80},
-        {text:'▶ Click / Space to poop again', font:'bold 26px "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
+        {text: S.misses>=maxMiss ? '🧻 Out of toilet paper!' : '🗼 TIMBERRR!', font:'bold 46px "Comic Neue", "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:70},
+        {text:'Score: ' + score, font:'bold 40px "Comic Neue", "Comic Sans MS", cursive', color:'#ffe14d', stroke:true, gap:46},
+        {text:'Best: ' + Math.max(best,highScore) + (highName ? ' (' + highName + ')' : ''), font:'26px "Comic Neue", "Comic Sans MS", cursive', gap:36},
+        {text:'Reached level ' + level + ' · ' + S.stack.length + ' plops', font:'22px "Comic Neue", "Comic Sans MS", cursive', gap:80},
+        {text:'▶ Click / Space to poop again', font:'bold 26px "Comic Neue", "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
       ]);
       drawButton(BTN_MENU, '◂ Menu', '#fff8e7', '#7a3d12', 22);
     }
     if(paused && state===STATE.PLAY){
-      centerText([{text:'⏸ Paused', font:'bold 48px "Comic Sans MS", cursive', color:'#fff', stroke:true}]);
+      centerText([{text:'⏸ Paused', font:'bold 48px "Comic Neue", "Comic Sans MS", cursive', color:'#fff', stroke:true}]);
       drawButton(BTN_RESUME, '▶ Resume', '#7bed9f', '#14532d');
       drawButton(BTN_QUIT,   '🏠 Main menu', '#fff8e7', '#7a3d12');
+      drawButton(BTN_SOUND,  WB.sound.muted() ? '🔇 Sound: off' : '🔊 Sound: on', '#fff8e7', '#7a3d12');
     }
 
     // the cursor only hides while you're steering the platform with it
-    const cursor = state === STATE.PLAY && !paused ? 'none' : 'default';
+    const playing = state === STATE.PLAY && !paused;
+    const cursor = playing ? 'none' : 'default';
     if(cv.style.cursor !== cursor) cv.style.cursor = cursor;
+    // the controls hint sits over the bottom of the game, so it hides during play
+    const hintVis = playing ? 'hidden' : 'visible';
+    if(hintEl.style.visibility !== hintVis) hintEl.style.visibility = hintVis;
   }
 
   reset();                                // a run to show behind the title screen

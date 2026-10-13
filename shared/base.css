@@ -1,9 +1,21 @@
 /* Page frame shared by both modes. */
+
+/* Comic Neue (SIL Open Font License, see fonts/OFL.txt), bundled so the game
+   looks the same everywhere instead of falling back to whatever cursive font
+   a device has. Latin subset; emoji and arrows come from the system fonts. */
+@font-face {
+  font-family: "Comic Neue"; font-style: normal; font-weight: 400; font-display: swap;
+  src: url("fonts/comic-neue-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Comic Neue"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url("fonts/comic-neue-700.woff2") format("woff2");
+}
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
   height: 100%;
   background: #6ab04c;
-  font-family: "Comic Sans MS", "Chalkboard SE", "Comic Neue", cursive, sans-serif;
+  font-family: "Comic Neue", "Comic Sans MS", "Chalkboard SE", cursive, sans-serif;
   overflow: hidden;
   -webkit-user-select: none; user-select: none;
   touch-action: none;

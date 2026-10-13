@@ -53,12 +53,17 @@ Progress saves automatically after each day, so you can close the page and
 | Start / choose | Click (Space / Enter also start endless) | Tap |
 | Pause | ⏸ button, or P / Esc | ⏸ button (top right) |
 | Back to the mode menu | ◂ Menu, or Main menu from the pause screen | Same |
+| Sound on/off | 🔊 button, M, or the pause screen | 🔊 button, or the pause screen |
 
-The game also pauses itself if you switch tab or app mid-level.
+The game also pauses itself if you switch tab or app mid-level. Sound starts
+with your first tap or key press (browsers don't allow it before that), and the
+on/off choice is remembered.
 
 ## Running it locally
 
-Open `index.html` straight in your browser, and that's it.
+Open `index.html` straight in your browser, and that's it. (Some browsers
+won't load the bundled font from disk and use a fallback font instead; serving
+the folder as below avoids that.)
 
 To test from a phone on the same network, serve the folder instead:
 
@@ -80,8 +85,10 @@ There's no build step and there are no dependencies, just HTML and plain JavaScr
 | `shared/core.js` | The game clock, screen fitting for sharp high-DPI rendering and notches, constants, input helpers |
 | `shared/physics.js` | Falling poops, stacking, the wobble, melting and collapse, particles |
 | `shared/wombat.js` | The wombat's crawl, poop and lettuce-eating routine |
+| `shared/sound.js` | Sound effects, synthesised in code (no audio files), and the mute setting |
 | `shared/art.js` | Drawing of the wombats, poops, platforms, lettuce, ground and goal line |
-| `shared/base.css` | Page layout shared by both modes |
+| `shared/base.css` | Page layout shared by both modes, and the bundled font |
+| `shared/fonts/` | Comic Neue, the game's font ([SIL Open Font License](shared/fonts/OFL.txt)) |
 | `tools/compare.js` | Refactor safety check, see [tools/README.md](tools/README.md) |
 | `tools/bump-version.js` | Stamps the `shared/` links with version hashes (see below) |
 
@@ -102,6 +109,9 @@ Everything is kept in the browser's `localStorage`:
 
 - `wombatPoopHigh`: the endless-mode best score and name
 - `wombatCampaignSave`: the campaign in progress
+- `wombatMuted`: whether sound is off
+- `wombatTutorialDone`, `wombatCampaignTutorialDone`: the first-play tips have
+  been shown (delete these to see them again)
 
 ## Making changes safely
 
@@ -129,4 +139,6 @@ differ. See [tools/README.md](tools/README.md).
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE). The bundled Comic Neue font is by the Comic Neue
+Project Authors under the SIL Open Font License, see
+[shared/fonts/OFL.txt](shared/fonts/OFL.txt).

@@ -206,7 +206,7 @@
 
       // effort marks floating around the head
       if(push>0.45){
-        ctx.fillStyle='#e74c3c'; ctx.font='bold 34px "Comic Sans MS", cursive'; ctx.textAlign='left';
+        ctx.fillStyle='#e74c3c'; ctx.font='bold 34px "Comic Neue", "Comic Sans MS", cursive'; ctx.textAlign='left';
         ctx.fillText('!', wb.x+84*scale, wb.y-30*scale-push*6);
         ctx.fillText('💨', wb.x-124*scale, wb.y+30*scale);
       }
@@ -343,7 +343,7 @@
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
       ctx.setLineDash([]); ctx.globalAlpha = 1;
       ctx.fillStyle = '#e23b2e';
-      ctx.font = 'bold 19px "Comic Sans MS", cursive';
+      ctx.font = 'bold 19px "Comic Neue", "Comic Sans MS", cursive';
       ctx.textAlign = 'right';
       ctx.fillText('🎯 GOAL', W - 14, y - 9);
       ctx.textAlign = 'left';
@@ -356,12 +356,13 @@
       ctx.save();
       ctx.fillStyle=fill; ctx.strokeStyle=edge; ctx.lineWidth=4;
       roundRect(b.x,b.y,b.w,b.h,14); ctx.fill(); ctx.stroke();
-      ctx.fillStyle=edge; ctx.font='bold '+size+'px "Comic Sans MS",cursive'; ctx.textAlign='center';
+      ctx.fillStyle=edge; ctx.font='bold '+size+'px "Comic Neue", "Comic Sans MS", cursive'; ctx.textAlign='center';
       ctx.fillText(label, b.x+b.w/2, b.y+b.h/2+size*0.36);
       ctx.restore();
     }
 
-    // the round in-game button: b = {x,y,r}, icon 'pause' (two bars) or 'menu' (three lines)
+    // the round in-game button: b = {x,y,r}, icon 'pause' (two bars), 'menu'
+    // (three lines), or 'sound' / 'muted' (a speaker)
     function drawRoundButton(b, icon){
       ctx.save();
       ctx.fillStyle='rgba(255,255,255,.78)'; ctx.strokeStyle='#2d5016'; ctx.lineWidth=3;
@@ -369,6 +370,20 @@
       ctx.fillStyle='#2d5016';
       if(icon === 'menu'){
         for(let i=-1;i<=1;i++){ roundRect(b.x-10, b.y+i*7-1.5, 20, 3.5, 1.7); ctx.fill(); }
+      } else if(icon === 'sound' || icon === 'muted'){
+        // a speaker, with sound waves or a cross
+        ctx.beginPath();
+        ctx.moveTo(b.x-11, b.y-4); ctx.lineTo(b.x-6, b.y-4); ctx.lineTo(b.x+1, b.y-10);
+        ctx.lineTo(b.x+1, b.y+10); ctx.lineTo(b.x-6, b.y+4); ctx.lineTo(b.x-11, b.y+4);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle='#2d5016'; ctx.lineWidth=2.5; ctx.lineCap='round';
+        if(icon === 'sound'){
+          ctx.beginPath(); ctx.arc(b.x+2, b.y, 6, -0.9, 0.9); ctx.stroke();
+          ctx.beginPath(); ctx.arc(b.x+2, b.y, 11, -0.9, 0.9); ctx.stroke();
+        } else {
+          ctx.beginPath(); ctx.moveTo(b.x+5, b.y-5); ctx.lineTo(b.x+13, b.y+5);
+          ctx.moveTo(b.x+13, b.y-5); ctx.lineTo(b.x+5, b.y+5); ctx.stroke();
+        }
       } else {
         roundRect(b.x-8, b.y-9, 5.5, 18, 2); ctx.fill();
         roundRect(b.x+2.5, b.y-9, 5.5, 18, 2); ctx.fill();
