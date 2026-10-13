@@ -12,6 +12,7 @@
 //   node tools/compare.js                      # HEAD vs working tree, both pages
 //   node tools/compare.js --old main~3 --page campaign --frames 40000 --seeds 1,2,3
 //   node tools/compare.js --old /some/dir --new /other/dir
+//   node tools/compare.js --old . --hz 120    # same game on a 120 Hz screen?
 //
 // --old takes a git ref (exported with `git archive`) or a directory; --new
 // defaults to this checkout. Exits non-zero on any difference, printing the
@@ -28,7 +29,7 @@ const ROOT = path.resolve(__dirname, '..');
 const PAGES = { endless: 'wombat-poop.html', campaign: 'wombat-campaign.html' };
 
 function parseArgs(argv){
-  const o = { old: 'HEAD', new: ROOT, page: 'both', frames: 20000, seeds: [1,2], skilled: null };
+  const o = { old: 'HEAD', new: ROOT, page: 'both', frames: 20000, seeds: [1,2], skilled: null, hz: 60 };
   for(let i=0;i<argv.length;i++){
     const a = argv[i], v = () => argv[++i];
     if(a === '--old') o.old = v();
@@ -36,10 +37,12 @@ function parseArgs(argv){
     else if(a === '--page') o.page = v();
     else if(a === '--frames') o.frames = +v();
     else if(a === '--seeds') o.seeds = v().split(',').map(Number);
+    else if(a === '--hz') o.hz = +v();
     else if(a === '--skilled') o.skilled = true;
     else if(a === '--casual') o.skilled = false;
     else { console.error('unknown option ' + a); process.exit(2); }
   }
+  if(!(o.hz >= 60 && o.hz % 60 === 0)){ console.error('--hz must be a multiple of 60'); process.exit(2); }
   if(o.page !== 'both' && !PAGES[o.page]){ console.error('--page must be endless, campaign or both'); process.exit(2); }
   return o;
 }
@@ -59,7 +62,7 @@ function scriptsOf(dir, file){
   const re = /<script(?:\s+src="([^"]+)")?\s*>([\s\S]*?)<\/script>/g;
   let m;
   while((m = re.exec(html))){
-    if(m[1]) out.push({ name: m[1], code: fs.readFileSync(path.join(dir, m[1]), 'utf8') });
+    if(m[1]) out.push({ name: m[1], code: fs.readFileSync(path.join(dir, m[1].split('?')[0]), 'utf8') });
     // controller-only peephole into the campaign's level state (read, never written)
     else out.push({ name: file + ':inline', code: m[2].replace(/let L = null;/, 'let L = null; globalThis.__L = () => L;') });
   }
@@ -133,7 +136,7 @@ function boot(dir, page, storage, seed){
   const document = {
     getElementById(id){ return els[id] || (els[id] = el(id)); },
     addEventListener(k,f){ (docL[k] = docL[k] || []).push(f); }, hidden:false };
-  let raf = null;
+  let raf = null, clock = 0;
   const sandbox = {
     document, devicePixelRatio:1, console,
     localStorage: { getItem:k => k in storage ? storage[k] : null, setItem:(k,v)=>{ storage[k] = String(v); },
@@ -150,7 +153,7 @@ function boot(dir, page, storage, seed){
   const fire = (target, k, e) => (target[k] || []).forEach(f => f(e));
   return {
     log, els, sandbox,
-    frame(){ log.length = 0; const f = raf; raf = null; f(); return log.slice(); },
+    frame(ms = 1000/60){ log.length = 0; clock += ms; const f = raf; raf = null; f(clock); return log.slice(); },
     key(type, key){ fire(winL, type, { key, preventDefault(){} }); },
     mouse(type, x, y){ fire(canvas.listeners, type, { clientX:x, clientY:y }); },
     touch(type, x, y){ fire(canvas.listeners, type, { touches:[{ clientX:x, clientY:y }], preventDefault(){} }); },
@@ -182,7 +185,7 @@ function lowestPlop(log, height){
   return best ? best[4] : null;
 }
 
-function run(oldDir, newDir, page, frames, seed, skilled){
+function run(oldDir, newDir, page, frames, seed, skilled, hz = 60){
   const store = { old:{}, new:{} };
   let A = boot(oldDir, page, store.old, seed), B = boot(newDir, page, store.new, seed);
   const ctl = seeded(seed * 7919 + 13);
@@ -192,7 +195,10 @@ function run(oldDir, newDir, page, frames, seed, skilled){
   let pointer = 360, aim = 0;
 
   for(let f=0; f<frames; f++){
-    const la = A.frame(), lb = B.frame();
+    // the new version can run at a higher refresh rate: it should draw the same
+    // picture at the end of each 1/60 s as the old one does every frame
+    const la = A.frame();
+    let lb; for(let k = 0; k < hz/60; k++) lb = B.frame(1000/hz);
     const ha = crypto.createHash('sha1').update(la.join('\n')).digest('hex');
     const hb = crypto.createHash('sha1').update(lb.join('\n')).digest('hex');
     if(ha !== hb){
@@ -270,7 +276,7 @@ function run(oldDir, newDir, page, frames, seed, skilled){
     }
   }
   const storeSame = JSON.stringify(store.old) === JSON.stringify(store.new);
-  console.log(`${page} seed=${seed}${skilled ? ' skilled' : ''}: ${mismatches ? 'DIFFERENT' : 'identical'} over ${frames} frames` +
+  console.log(`${page} seed=${seed}${skilled ? ' skilled' : ''}${hz !== 60 ? ' @' + hz + 'Hz' : ''}: ${mismatches ? 'DIFFERENT' : 'identical'} over ${frames} frames` +
               `, storage ${storeSame ? 'identical' : 'DIFFERENT'}, reloads=${reloads}`);
   console.log('  covered:', [...seen].sort().join(', '));
   return !mismatches && storeSame;
@@ -283,7 +289,7 @@ const skills = opts.skilled === null ? [false, true] : [opts.skilled];
 let ok = true;
 for(const page of pages) for(const skill of skills) for(const seed of opts.seeds){
   // a version that throws (say, it can't even start) is a difference, not a tool crash
-  try { ok = run(oldDir, newDir, page, opts.frames, seed, skill) && ok; }
+  try { ok = run(oldDir, newDir, page, opts.frames, seed, skill, opts.hz) && ok; }
   catch(e){ ok = false; console.log(`${page} seed=${seed}: THREW ${e.name}: ${e.message} (${e.stack.split('\n')[0]})`); }
 }
 console.log(ok ? 'PASS: no behaviour differences found' : 'FAIL: versions differ');

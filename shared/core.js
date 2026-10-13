@@ -43,6 +43,34 @@
     return d;
   };
 
+  // ---------- Game clock ----------
+  // The simulation always advances in fixed 1/60 s steps, however fast the
+  // screen refreshes: a 120 Hz phone draws twice per step, a 30 Hz one runs
+  // two steps per frame. All speeds and timers are tuned in steps, so this
+  // keeps the game the same speed on every device. update() must hold all the
+  // game's randomness; render() may run any number of times per step.
+  WB.STEP_MS = 1000/60;
+  WB.runLoop = function(update, render){
+    const STEP = WB.STEP_MS;
+    let last = null, acc = 0;
+    function frame(now){
+      if(last === null) acc = STEP;                 // first frame: exactly one step
+      else acc += Math.min(now - last, 100);        // after a stall (hidden tab), don't race to catch up
+      last = now;
+      // A step runs once we're within 1.5 ms of a whole step behind. The slack
+      // absorbs frame-timing jitter on 60 Hz screens (one step every frame,
+      // never 0 then 2) while staying under one frame even at 240 Hz, and the
+      // remainder carries over, so the average rate stays exact.
+      let steps = 0;
+      while(acc >= STEP - 1.5 && steps < 6){ update(); acc -= STEP; steps++; }
+      if(steps === 6) acc = 0;
+      render();
+      requestAnimationFrame(frame);
+    }
+    update(); render();                             // draw straight away
+    requestAnimationFrame(frame);
+  };
+
   // client (CSS pixel) coordinates -> logical canvas coordinates
   WB.canvasPt = function(cv, clientX, clientY){
     const r = cv.getBoundingClientRect();

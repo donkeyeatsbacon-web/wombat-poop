@@ -256,6 +256,7 @@
   //  LEVEL  — the stacking itself lives in shared/ (same as endless mode)
   // =====================================================================
   let L = null;                // the current level's run (see shared/physics.js)
+  let shakeX = 0, shakeY = 0;  // this step's screen-shake offset in a level
 
   // The campaign's pile physics: softer than endless mode, with a terminal
   // fall speed, and buffs/debuffs scale how fast plops fall.
@@ -391,6 +392,7 @@
     // state, and this makes the base transform immune to any save/restore drift.
     ctx.setTransform(disp.sx, 0, 0, disp.sy, 0, 0);
     ctx.clearRect(0,0,W,H);
+    ctx.save();                  // so no drawing state leaks into the next frame
     if(mode===MODE.INTRO) drawIntro();
     else if(mode===MODE.LEVEL && L) drawLevel();
     else {
@@ -398,6 +400,7 @@
       if(mode===MODE.WIN)  drawBanner('🏆 Season won! Your charm reigns.','#ffe14d');
       if(mode===MODE.LOSE) drawBanner('💀 Rivals overran your territory.','#ff8a8a');
     }
+    ctx.restore();
   }
 
   function drawIntro(){
@@ -557,8 +560,7 @@
   function drawLevel(){
     drawSky();
     ctx.save();
-    const sx=(Math.random()-0.5)*L.shake, sy=(Math.random()-0.5)*L.shake;
-    ctx.translate(sx,sy);
+    ctx.translate(shakeX,shakeY);
 
     drawGround(L.plat);
     drawGoalLine(L.goalY);
@@ -645,6 +647,8 @@
       womb.dir = travel.toX > travel.fromX ? 1 : -1;
       if(travel.p>=1){ const node=travel.node; travel=null; startLevel(node); }
     } else if(mode===MODE.LEVEL && L) updateLevel();
+    // rolled here rather than in render(), which can run more than once a step
+    if(mode===MODE.LEVEL && L){ shakeX=(Math.random()-0.5)*L.shake; shakeY=(Math.random()-0.5)*L.shake; }
   }
 
   const input = { keys:{}, pointerX:null };
@@ -684,9 +688,8 @@
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) saveGame(); });
   window.addEventListener('pagehide', saveGame);
 
-  function loop(){ update(); render(); requestAnimationFrame(loop); }
   buildMap();
-  loop();
+  WB.runLoop(update, render);
 })();
 </script>
 </body>

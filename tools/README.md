@@ -38,12 +38,16 @@ casual and a skilled test player, and takes about three minutes.
 | `--seeds <list>` | `1,2` | Comma-separated random seeds; each seed is a different game |
 | `--skilled` | both | Only the skilled player (follows falling poops, finishes stacks, climbs levels) |
 | `--casual` | both | Only the casual player (sloppier, so it topples and misses more) |
+| `--hz <n>` | `60` | Run the new version at a higher screen refresh rate (120, 180, 240...). The game runs on a fixed 60 steps/second clock, so it should still match the old version at 60 Hz |
 
 Examples:
 
 ```bash
 # quick check of just the campaign
 node tools/compare.js --page campaign --frames 5000 --seeds 1
+
+# check that a 120 Hz phone plays the same game as a 60 Hz screen
+node tools/compare.js --old . --hz 120
 
 # a longer, more thorough run against an older commit
 node tools/compare.js --old main~3 --frames 40000 --seeds 1,2,3,4

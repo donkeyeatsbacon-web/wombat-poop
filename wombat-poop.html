@@ -109,6 +109,7 @@
     hop: topHop
   };
   let S;                                  // the current run (see shared/physics.js)
+  let shakeX = 0, shakeY = 0;             // this step's screen-shake offset
 
   // ---------- Input ----------
   const input = { keys: {}, pointerX: null };
@@ -262,6 +263,9 @@
     if(state === STATE.TOPPLE) updateTopple();
 
     WB.updateParticles(S.particles);
+
+    // rolled here rather than in render(), which can run more than once a step
+    shakeX = (Math.random()-0.5)*S.shake; shakeY = (Math.random()-0.5)*S.shake;
   }
 
   // ---------- Drawing ----------
@@ -377,8 +381,7 @@
     ctx.setTransform(disp.sx, 0, 0, disp.sy, 0, 0);
     ctx.clearRect(0,0,W,H);
     ctx.save();
-    const sx = (Math.random()-0.5)*S.shake, sy=(Math.random()-0.5)*S.shake;
-    ctx.translate(sx,sy);
+    ctx.translate(shakeX, shakeY);
 
     drawClouds();
 
@@ -428,13 +431,8 @@
     }
   }
 
-  function loop(){
-    update();
-    render();
-    requestAnimationFrame(loop);
-  }
   reset();                                // a run to show behind the title screen
-  loop();
+  WB.runLoop(update, render);
 })();
 </script>
 </body>
