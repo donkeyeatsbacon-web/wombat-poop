@@ -76,16 +76,19 @@
     }
 
     // The pile, each poop leaning with the wobble in proportion to its height
-    // above the platform, so poops resting on the platform stay level and stuck.
+    // above the base of the current level (where the physics measures the
+    // wobble from too), so poops at the base stay level and stuck, and a tall
+    // endless tower doesn't swing harder just for having climbed.
     // Pass lean=false while the tower is toppling (it falls straight instead).
+    const LEAN = 0.35;                                       // how far the drawn pile leans per unit of sway
     function drawStack(S, lean){
       const sway = clamp(S.pileSwayShown, -0.5, 0.5);
-      const top = S.plat.y - S.plat.h/2;
+      const base = S.raiseBaseY;
       for(const c of S.stack){
         let dx = 0;
         if(lean){
-          const above = Math.max(0, top - (c.y + c.h/2));  // height of its underside
-          dx = sway * above * 0.5;
+          const above = Math.max(0, base - (c.y + c.h/2));  // height of its underside above the level's base
+          dx = sway * above * LEAN;
         }
         if(c.melting || c.melted) drawPuddle(c.x + dx, c.y, c.w, c.h);
         else drawPoop(c.x + dx, c.y, c.w, c.h, (c.rot||0), c.squish, c.hue);

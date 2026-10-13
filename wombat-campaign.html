@@ -14,7 +14,7 @@
 <div id="hint"></div>
 <script src="shared/core.js?v=f6589e31"></script>
 <script src="shared/sound.js?v=945a409e"></script>
-<script src="shared/art.js?v=ef034edb"></script>
+<script src="shared/art.js?v=c54f25b5"></script>
 <script src="shared/physics.js?v=ce40dcd2"></script>
 <script src="shared/wombat.js?v=4b3f92f6"></script>
 <script>
@@ -264,9 +264,11 @@
   const TUNE = {
     fallMul: 1, maxFallV: 11,
     measureTip: false,
-    swayPush: 0.0017, nervous: 0.03,
-    restoreMax: 0.058, restoreInstab: 0.013, restoreMin: 0.016,
-    damping: 0.94
+    // Calmed after playtest-2 by the same proportions as endless mode
+    // (was 0.0017 / 0.03 / 0.058 / 0.016 / 0.94).
+    swayPush: 0.00153, nervous: 0.021,
+    restoreMax: 0.062, restoreInstab: 0.013, restoreMin: 0.019,
+    damping: 0.93
   };
   const hooks = {
     onMiss: () => { if(L.misses>=L.maxMiss && !L.result){ L.result='lose'; L.resultT=0; WB.sfx('sad'); } },

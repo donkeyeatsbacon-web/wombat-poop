@@ -205,6 +205,11 @@ Phase C - Balance pass (after Phase B)
   Tune using the TUNE blocks and the constants they point to. Re-test after
   each change.
 
+  Done after playtest-2: the wobble was toned down in both modes. The drawn
+  lean now starts from the current level's base (a tall endless tower used to
+  swing ~90 px at the top, now ~20), and the pile is steadier: about half as
+  many topples for a simulated player, towers ~10 poops taller before they go.
+
   Endless:
     - Time to first topple for a new player (target: 60-90 s first game)
     - The difficulty ramp: poop delay min 70 frames at score >= 133; does
