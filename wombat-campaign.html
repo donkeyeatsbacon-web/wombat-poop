@@ -4,66 +4,28 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>💩 Combat Wombat: Campaign 💩</title>
+<link rel="stylesheet" href="shared/base.css">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  html,body { height:100%; background:#6ab04c;
-    font-family:"Comic Sans MS","Chalkboard SE","Comic Neue",cursive,sans-serif;
-    overflow:hidden; -webkit-user-select:none; user-select:none; touch-action:none; }
-  /* Inset by the safe area so the map never sits under a notch, a rounded
-     corner, or the home indicator. env() falls back to 0. */
-  #wrap { position:absolute;
-    top:env(safe-area-inset-top,0px); right:env(safe-area-inset-right,0px);
-    bottom:env(safe-area-inset-bottom,0px); left:env(safe-area-inset-left,0px);
-    display:flex; align-items:center; justify-content:center; }
-  /* No max-width/height: fitCanvas() sets the CSS size in px so the backing
-     store can be an exact device-pixel multiple of it. */
-  canvas { background: linear-gradient(#9fd8ff 0%, #bfe6ff 55%, #d8f0ff 100%);
-    box-shadow:0 10px 40px rgba(0,0,0,.35); border-radius:12px; }
-  #hint { position:absolute; bottom:calc(8px + env(safe-area-inset-bottom,0px));
-    left:env(safe-area-inset-left,0px); right:env(safe-area-inset-right,0px);
-    text-align:center; color:#2d5016; font-size:13px;
-    text-shadow:0 1px 0 rgba(255,255,255,.4); pointer-events:none; }
+  #hint { font-size: 13px; }
 </style>
 </head>
 <body>
 <div id="wrap"><canvas id="game" width="720" height="960"></canvas></div>
 <div id="hint">Campaign — tap a spot to travel &amp; stack &nbsp;·&nbsp; ← → / A D / finger to move the platform</div>
+<script src="shared/core.js"></script>
+<script src="shared/art.js"></script>
+<script src="shared/physics.js"></script>
+<script src="shared/wombat.js"></script>
 <script>
 (() => {
+  const { W, H, topPlat, rand, clamp } = WB;
   const cv = document.getElementById('game');
   const ctx = cv.getContext('2d');
-  const W = 720, H = 960;          // logical drawing units — all game code works in these
+  const disp = WB.fitDisplay(cv, document.getElementById('wrap'));
   let t = 0;
-
-  // ---------- Display fitting ----------
-  // The canvas used to be a fixed 720x960 bitmap stretched by CSS, which is
-  // visibly soft on any high-DPI screen. Instead size the backing store to the
-  // real device pixels available inside the safe area, and scale the context so
-  // drawing code can keep using logical units.
-  let sx = 1, sy = 1;              // logical -> device-pixel scale
-  const wrapEl = document.getElementById('wrap');
-
-  function fitCanvas(){
-    const availW = wrapEl.clientWidth, availH = wrapEl.clientHeight;
-    if(!availW || !availH) return;                  // laid out to nothing (e.g. hidden tab)
-    const dpr  = Math.min(window.devicePixelRatio || 1, 3);  // past 3x the cost buys nothing visible
-    const fit  = Math.min(availW / W, availH / H);            // letterbox, never distort
-    const cssW = Math.max(1, Math.floor(W * fit));
-    const cssH = Math.max(1, Math.floor(H * fit));
-    cv.style.width  = cssW + 'px';
-    cv.style.height = cssH + 'px';
-    cv.width  = Math.round(cssW * dpr);             // note: this resets all context state
-    cv.height = Math.round(cssH * dpr);
-    sx = cv.width / W; sy = cv.height / H;
-  }
-
-  window.addEventListener('resize', fitCanvas);
-  window.addEventListener('orientationchange', fitCanvas);
-  if(window.visualViewport) window.visualViewport.addEventListener('resize', fitCanvas);
-  fitCanvas();
-
-  const clamp = (v,a,b)=> v<a?a:v>b?b:v;
-  const rand  = (a,b)=> a + Math.random()*(b-a);
+  const { roundRect, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
+          drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine } = WB.createArt(ctx, () => t);
+  const { PAL_PLAYER, PAL_RIVAL, PAL_MATE } = WB;
 
   // =====================================================================
   //  CAMPAIGN STATE
@@ -291,260 +253,42 @@
   }
 
   // =====================================================================
-  //  LEVEL  — mechanics & art copied from endless mode
+  //  LEVEL  — the stacking itself lives in shared/ (same as endless mode)
   // =====================================================================
-  const GRAV = 0.16, SMALL_CUBE = 30;
-  const topPlat = { x:W/2, y:132, w:W-120, h:22 };
-  let L = null;
+  let L = null;                // the current level's run (see shared/physics.js)
+
+  // The campaign's pile physics: softer than endless mode, with a terminal
+  // fall speed, and buffs/debuffs scale how fast plops fall.
+  const TUNE = {
+    fallMul: 1, maxFallV: 11,
+    measureTip: false,
+    swayPush: 0.0017, nervous: 0.03,
+    restoreMax: 0.058, restoreInstab: 0.013, restoreMin: 0.016,
+    damping: 0.94
+  };
+  const hooks = {
+    onMiss: () => { if(L.misses>=L.maxMiss){ L.result='lose'; L.resultT=0; } },
+    nextPoopAt: t => t + rand(70,150)
+  };
 
   function startLevel(node){
     const p = effectiveParams(node.target);
-    L = {
+    L = Object.assign(WB.newRun(t, { platW:p.platW, tune:{ ...TUNE, fallMul:p.fallMul }, hooks }), {
       node,
-      plat: { w:p.platW, h:26, x:W/2, y:H-70, px:W/2, baseW:p.platW, shrink:0, shrinkTimer:0 },
-      fallMul:p.fallMul, maxMiss:p.maxMiss, margin:p.margin, target:p.target,
-      stack:[], plops:[], particles:[], misses:0,
-      wombat:{ x:W/2, y:70, dir:1, wob:0, strain:0, blink:0, crawl:0, face:0, mode:'crawl', timer:0 },
-      lettuce:null, diarrhea:[], diarrheaTimer:0, diarrheaSpawn:0, diarrheaX:0,
-      nextSpawn:t+70, shake:0, comboFlash:0,
-      pileCOMx:W/2, pileSway:0, pileSwayV:0, pileSwayShown:0,
+      maxMiss:p.maxMiss, margin:p.margin, target:p.target,
       goalY:(H-70-13) - (p.target*42),
       stacksNeeded:node.stacks||1, stacksDone:0, banking:0, stars:[],
       result:null, resultT:0,
       // rival wombats that have reached the territory heckle you here
       foes: invaders().map((n,i)=>({ name:n.name, x: i%2 ? W*0.78 : W*0.22, dir: i%2?-1:1,
               crawl:0, wob:0, blink:0, face:0, throwT: t + 260 + i*140, wind:0 }))
-    };
+    });
     mode = MODE.LEVEL;
   }
 
-  // ---- helpers (endless) ----
-  function platTop(){ return L.plat.y - L.plat.h/2; }
-  function stackTopWorldY(){
-    let y = platTop();
-    for(const c of L.stack){ const ct = c.y - c.h/2; if(ct < y) y = ct; }
-    return y;
-  }
-  function roundRect(x,y,w,h,r){ r=Math.min(r,w/2,h/2); ctx.beginPath();
-    ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
-    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-
-  function spawnPlop(){
-    const size = rand(30,78);
-    L.plops.push({ x:L.wombat.x, y:L.wombat.y+52, w:size, h:size,
-      vx:rand(-0.3,0.3), vy:rand(0.2,0.6), rot:rand(-0.15,0.15), vr:rand(-0.05,0.05),
-      squish:1, hue:rand(-8,8) });
-    L.wombat.strain = 1;
-    for(let i=0;i<6;i++) L.particles.push(puff(L.wombat.x, L.wombat.y+40, '#9b6b3a'));
-  }
-  function puff(x,y,color){ return { x,y, vx:rand(-2,2), vy:rand(-3,-0.5), life:rand(18,34), max:34, r:rand(3,8), color, kind:'puff' }; }
-  function splat(x,y){ for(let i=0;i<14;i++) L.particles.push({ x,y, vx:rand(-5,5), vy:rand(-7,-1),
-    life:rand(20,40), max:40, r:rand(4,11), color:'#6f4a24', kind:'splat', g:.35 }); }
-  function star(x,y){ for(let i=0;i<10;i++){ const a=Math.random()*Math.PI*2, s=rand(2,6);
-    L.particles.push({ x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s-2, life:rand(20,36), max:36,
-      r:rand(3,7), color:['#ffe14d','#ff9ff3','#7bed9f','#70a1ff'][i%4], kind:'star', g:.15 }); } }
-
-  // ---- piling physics (endless) ----
-  function restingSupport(off, w, bottom){
-    const l=off-w/2, r=off+w/2; let supL=Infinity, supR=-Infinity, found=false;
-    if(Math.abs(platTop()-bottom)<5 && r>-L.plat.w/2 && l<L.plat.w/2){
-      supL=Math.max(l,-L.plat.w/2); supR=Math.min(r,L.plat.w/2); found=true;
-    }
-    for(const c of L.stack){
-      if(Math.abs((c.y-c.h/2)-bottom)<5){
-        const ol=Math.max(l,c.off-c.w/2), or=Math.min(r,c.off+c.w/2);
-        if(or-ol>2){ supL=Math.min(supL,ol); supR=Math.max(supR,or); found=true; }
-      }
-    }
-    return found ? {supL,supR} : null;
-  }
-  function collideFallingPoop(p){
-    let resting=false, pushedL=false, pushedR=false, wedgeTop=Infinity, gapL=-Infinity, gapR=Infinity;
-    const hit=(ox,oy,ow,oh)=>{
-      const dx=p.x-ox, dy=p.y-oy;
-      const px=(p.w/2+ow/2)-Math.abs(dx), py=(p.h/2+oh/2)-Math.abs(dy);
-      if(px<=0||py<=0) return;
-      p._touched = true;
-      const centreOver = Math.abs(dx) <= ow/2 + p.w*0.1;
-      if(py<=px && centreOver){
-        if(dy<0){ p.y-=py; if(p.vy>0) p.vy*=-0.12; if(Math.abs(p.vy)<0.5) p.vy=0; p.vx*=0.6; resting=true; }
-        else { p.y+=py; if(p.vy<0) p.vy=0; }
-      } else {
-        if(dx<0){ p.x-=px; pushedL=true; gapR=Math.min(gapR, ox-ow/2); }
-        else     { p.x+=px; pushedR=true; gapL=Math.max(gapL, ox+ow/2); }
-        p.vx=(dx<0?-1:1)*Math.max(Math.abs(p.vx)*0.3,0.6);
-        wedgeTop=Math.min(wedgeTop, oy-oh/2);
-      }
-    };
-    hit(L.plat.x, L.plat.y, L.plat.w, L.plat.h);
-    for(const c of L.stack){
-      if(Math.abs(c.y-p.y)<220 && Math.abs((L.plat.x+c.off)-p.x)<200) hit(L.plat.x+c.off, c.y, c.w, c.h);
-    }
-    if(pushedL && pushedR && isFinite(wedgeTop)){
-      if(isFinite(gapL)&&isFinite(gapR)) p.x=(gapL+gapR)/2;
-      p.y=wedgeTop-p.h/2; p.vy=0; p.vx=0; resting=true;
-    }
-    return resting;
-  }
-  function supportHeightAt(x){
-    let top=Infinity;
-    if(x > L.plat.x-L.plat.w/2 && x < L.plat.x+L.plat.w/2) top=platTop();
-    for(const c of L.stack){ const cx=L.plat.x+c.off;
-      if(Math.abs(x-cx)<c.w/2){ const ct=c.y-c.h/2; if(ct<top) top=ct; } }
-    return top;
-  }
-  function settlePoop(p){
-    const off=p.x-L.plat.x, bottom=p.y+p.h/2;
-    const lh=supportHeightAt(p.x-p.w*0.3), rh=supportHeightAt(p.x+p.w*0.3);
-    const lC=isFinite(lh)&&Math.abs(lh-bottom)<12, rC=isFinite(rh)&&Math.abs(rh-bottom)<12;
-    let rot=0;
-    if(lC&&rC&&Math.abs(rh-lh)>12) rot=clamp((rh-lh)/p.w,-0.3,0.3);
-    L.stack.push({ off, x:p.x, y:p.y, w:p.w, h:p.h, hue:p.hue, squish:1.3, rot, tip:0.5 });
-    L.comboFlash=12; star(p.x,p.y); L.shake=Math.min(L.shake+3,10);
-  }
-
-  function updateStack(){
-    for(const c of L.stack){
-      c.squish += (1-c.squish)*0.18; c.x = L.plat.x + c.off;
-      if(c.melting){
-        c.meltT++;
-        const q=Math.min(1,c.meltT/28);
-        c.h=c.origH*(1-q*0.82); c.w=c.origW*(1+q*0.22); c.y=c.bottomY-c.h/2;
-        if(q>=1){ c.melting=false; c.melted=true; c.tip=0; }
-      }
-    }
-    // a melted-out support must not leave poops floating
-    let changed=true, guard=0;
-    while(changed && guard++<20){
-      changed=false;
-      for(let i=L.stack.length-1;i>=0;i--){
-        const c=L.stack[i]; if(c.melting) continue;
-        const bottom=c.y+c.h/2;
-        let sup = Math.abs(bottom-platTop())<6 && c.off>-L.plat.w/2 && c.off<L.plat.w/2;
-        if(!sup) for(const d of L.stack){ if(d===c||d.melting) continue;
-          const ov=Math.min(c.off+c.w/2,d.off+d.w/2)-Math.max(c.off-c.w/2,d.off-d.w/2);
-          if(ov>4 && Math.abs((d.y-d.h/2)-bottom)<6){ sup=true; break; } }
-        if(!sup){
-          L.plops.push({ x:L.plat.x+c.off, y:c.y, w:c.w, h:c.h, vx:rand(-0.5,0.5), vy:0.5,
-            rot:c.rot||0, vr:rand(-0.1,0.1), squish:1, hue:c.hue||0, collapsed:true });
-          L.stack.splice(i,1); changed=true;
-        }
-      }
-    }
-    if(!L.stack.length){ L.pileCOMx=L.plat.x; L.pileSway*=0.8; L.pileSwayV*=0.8; L.pileSwayShown*=0.8; return; }
-    let m=0,mx=0,topY=platTop(),tipSum=0;
-    for(const c of L.stack){ const w=c.w*c.h; m+=w; mx+=w*(L.plat.x+c.off);
-      if(c.y-c.h/2<topY) topY=c.y-c.h/2; tipSum+=(c.tip||0); }
-    L.pileCOMx=mx/m;
-    const pileH=Math.max(0, platTop()-topY);
-    const hF=clamp(pileH/500,0,1.3), comOff=L.pileCOMx-L.plat.x;
-    const instab=clamp(tipSum*0.12+hF*0.28,0,2);
-    const safe=L.plat.w*0.36;
-    const excess=Math.sign(comOff)*Math.max(0,Math.abs(comOff)-safe);
-    L.pileSwayV += excess*0.0017*(0.6+hF);
-    L.pileSwayV += Math.sin(t*0.11)*instab*0.03;
-    L.pileSwayV -= L.pileSway*clamp(0.058-instab*0.013,0.016,0.058);
-    L.pileSwayV *= 0.94; L.pileSway += L.pileSwayV;
-    L.pileSwayShown += (L.pileSway-L.pileSwayShown)*0.18;
-    const lever=L.pileSway*(50+Math.min(pileH,700)*0.14);
-    if(Math.abs(comOff+lever) > L.plat.w/2 + L.margin){ L.result='lose'; L.resultT=0; L.shake=16; }
-  }
-
-  // ---- wombat behaviour (endless) ----
-  function updateWombat(){
-    const wb = L.wombat;
-    if(wb.blink>0) wb.blink--;
-    if(wb.mode==='crawl'){
-      if(L.lettuce && L.lettuce.landed){ wb.mode='seek'; }
-      else if(L.diarrheaTimer>0){
-        wb.x += clamp(L.diarrheaX-wb.x,-0.5,0.5);
-        wb.wob = Math.sin(t*0.5)*6;
-        wb.face += (0-wb.face)*0.1;
-      } else {
-        wb.crawl += 0.18; wb.wob = Math.sin(wb.crawl)*4;
-        wb.x += wb.dir*1.6;
-        const bound = topPlat.w/2 - 40;
-        if(wb.x < W/2-bound){ wb.x=W/2-bound; wb.dir=1; }
-        if(wb.x > W/2+bound){ wb.x=W/2+bound; wb.dir=-1; }
-        if(Math.random()<0.008) wb.dir *= -1;
-        wb.face += (wb.dir-wb.face)*0.12;
-        wb.strain += (0-wb.strain)*0.1;
-        if(Math.random()<0.01) wb.blink=8;
-        if(t >= L.nextSpawn){ wb.mode='prep'; wb.timer=0; }
-      }
-    } else if(wb.mode==='seek'){
-      if(!L.lettuce){ wb.mode='crawl'; }
-      else {
-        const dx=L.lettuce.x-wb.x;
-        wb.dir = dx<0?-1:1;
-        wb.crawl += 0.26; wb.wob = Math.sin(wb.crawl)*5;
-        wb.x += clamp(dx,-2.6,2.6);
-        wb.face += (wb.dir-wb.face)*0.16;
-        if(Math.abs(dx)<12){ wb.mode='eat'; wb.timer=0; wb.face=0; }
-      }
-    } else if(wb.mode==='eat'){
-      wb.timer++;
-      wb.face += (0-wb.face)*0.3;
-      wb.wob = -Math.abs(Math.sin(wb.timer*0.5))*6;
-      if(L.lettuce){
-        L.lettuce.x += (wb.x-L.lettuce.x)*0.3;
-        L.lettuce.y += ((wb.y+16)-L.lettuce.y)*0.3;
-        L.lettuce.vx = 0;
-        L.lettuce.eatScale = clamp(1-wb.timer/42,0,1);
-        if(wb.timer%12===6){
-          for(let k=0;k<6;k++) L.particles.push({ x:L.lettuce.x+rand(-10,10), y:L.lettuce.y+rand(-6,6),
-            vx:rand(-3,3), vy:rand(-3.5,-0.5), life:rand(12,24), max:24, r:rand(2,4), color:'#7cc743', kind:'splat', g:.25 });
-          L.shake=Math.min(L.shake+2,6);
-        }
-      }
-      if(wb.timer>42){
-        L.lettuce=null;
-        L.diarrheaTimer=210; L.diarrheaSpawn=t; L.diarrheaX=wb.x;
-        L.nextSpawn = t + 1e9;
-        wb.mode='crawl';
-      }
-    } else if(wb.mode==='prep'){
-      wb.wob *= 0.9; wb.face += (0-wb.face)*0.2;
-      wb.strain += (0.18-wb.strain)*0.12; wb.timer++;
-      if((Math.abs(wb.face)<0.08 && wb.timer>14) || wb.timer>70){ wb.mode='push'; wb.timer=0; }
-    } else if(wb.mode==='push'){
-      wb.face += (0-wb.face)*0.3; wb.wob=0; wb.timer++;
-      wb.strain = Math.min(1, wb.strain+0.07);
-      if(wb.timer===24) spawnPlop();
-      if(wb.timer>34){ wb.mode='recover'; wb.timer=0; }
-    } else {
-      wb.timer++; wb.strain += (0-wb.strain)*0.14;
-      if(wb.timer>16){ wb.mode='crawl'; L.nextSpawn = t + rand(70,150); }
-    }
-  }
-
-  // ---- lettuce & diarrhea (endless), now also thrown by invading rivals ----
-  function diarrheaSurface(offX){
-    let bestTop=Infinity, bestCube=null;
-    for(const c of L.stack){ if(Math.abs(offX-c.off)<c.w/2){ const top=c.y-c.h/2; if(top<bestTop){bestTop=top;bestCube=c;} } }
-    if(bestCube) return { y:bestTop, cube:bestCube };
-    if(offX>-L.plat.w/2 && offX<L.plat.w/2) return { y:platTop(), cube:null };
-    return null;
-  }
-  function meltCube(c){
-    if(c.melting||c.melted) return;
-    c.melting=true; c.meltT=0; c.bottomY=c.y+c.h/2; c.origH=c.h; c.origW=c.w;
-    L.shake=Math.min(L.shake+3,10);
-  }
-  function shrinkPlatform(x){
-    L.plat.shrink=Math.min(L.plat.shrink+SMALL_CUBE, SMALL_CUBE*3);
-    L.plat.shrinkTimer=1800;
-    L.plat.w=L.plat.baseW-L.plat.shrink;
-    L.plat.x=clamp(L.plat.x, L.plat.w/2, W-L.plat.w/2);
-    L.shake=Math.min(L.shake+6,14);
-    for(let k=0;k<7;k++) L.particles.push({ x, y:platTop(), vx:rand(-2.2,2.2), vy:rand(-3,-0.5),
-      life:rand(16,30), max:30, r:rand(3,6), color:'#eaf6ff', kind:'puff' });
-  }
-  function diarrheaSplat(x,y){ for(let k=0;k<6;k++) L.particles.push({ x, y, vx:rand(-3,3), vy:rand(-4,-0.5),
-    life:rand(14,26), max:26, r:rand(3,7), color:'#7a5a1e', kind:'splat', g:.3 }); }
-
+  // invading rivals shuffle about up top and roll lettuce at your wombat;
+  // what happens once it's eaten is the same as endless mode
   function updateHazards(){
-    // invading rivals shuffle about up top and roll lettuce at your wombat
     for(const f of L.foes){
       f.crawl += 0.16; f.wob = Math.sin(f.crawl)*3;
       if(f.blink>0) f.blink--; else if(Math.random()<0.01) f.blink=8;
@@ -559,40 +303,7 @@
       }
       f.face += ((L.wombat.x > f.x ? 1 : -1) - f.face) * 0.08;
     }
-
-    if(L.lettuce){
-      if(!L.lettuce.landed){ L.lettuce.vy += 0.5; L.lettuce.y += L.lettuce.vy;
-        const surf = topPlat.y-20; if(L.lettuce.y>=surf){ L.lettuce.y=surf; L.lettuce.landed=true; } }
-      if(L.lettuce.vx){                             // rolling along the plank
-        L.lettuce.x += L.lettuce.vx; L.lettuce.vx *= 0.97;
-        if(Math.abs(L.lettuce.vx)<0.15) L.lettuce.vx = 0;
-        L.lettuce.x = clamp(L.lettuce.x, W/2-topPlat.w/2+20, W/2+topPlat.w/2-20);
-        L.lettuce.roll = (L.lettuce.roll||0) + L.lettuce.vx*0.05;
-      }
-      L.lettuce.wob = Math.sin(t*0.2)*2;
-    }
-
-    if(L.diarrheaTimer>0){
-      L.diarrheaTimer--;
-      if(t >= L.diarrheaSpawn){
-        L.diarrheaSpawn = t+3;
-        for(let k=0;k<2;k++) L.diarrhea.push({ x:L.diarrheaX+rand(-9,9), y:L.wombat.y+50,
-          vx:rand(-0.7,0.7), vy:rand(0.4,1.4), r:rand(6,11) });
-        L.wombat.strain = 0.85;
-      }
-      if(L.diarrheaTimer===0) L.nextSpawn = t + rand(60,120);
-    }
-    for(let i=L.diarrhea.length-1;i>=0;i--){
-      const d=L.diarrhea[i];
-      d.vy += GRAV*1.7; d.y += d.vy; d.x += d.vx; d.vx *= 0.99;
-      const s = diarrheaSurface(d.x - L.plat.x);
-      if(s && d.y+d.r >= s.y){
-        if(s.cube) meltCube(s.cube); else shrinkPlatform(d.x);
-        diarrheaSplat(d.x, s.y); L.diarrhea.splice(i,1); continue;
-      }
-      if(d.y > H+40) L.diarrhea.splice(i,1);
-    }
-    if(L.plat.shrinkTimer>0){ L.plat.shrinkTimer--; if(L.plat.shrinkTimer===0){ L.plat.shrink=0; L.plat.w=L.plat.baseW; } }
+    WB.updateLettuceAndDiarrhea(L, t);
   }
 
   function updateLevel(){
@@ -613,72 +324,20 @@
     if(L.shake>0) L.shake*=0.85;
     if(L.comboFlash>0) L.comboFlash--;
 
-    let dir=0;
-    if(keys['arrowleft']||keys['a']) dir-=1;
-    if(keys['arrowright']||keys['d']) dir+=1;
-    if(dir){ L.plat.x += dir*9; pointerX=null; }
-    else if(pointerX!==null) L.plat.x += (pointerX-L.plat.x)*0.35;
-    L.plat.x = clamp(L.plat.x, L.plat.w/2, W-L.plat.w/2);
-
-    updateWombat();
+    WB.steerPlatform(L, input);
+    WB.updateWombat(L, t);
     updateHazards();
+    WB.stepPlops(L);
 
-    for(let i=L.plops.length-1;i>=0;i--){
-      const p=L.plops[i];
-      p.vy = Math.min(p.vy + GRAV*L.fallMul, 11);
-      p.vx *= 0.99; p.x += p.vx; p.y += p.vy;
-      p.rot = (p.rot||0)+(p.vr||0); p.vr = (p.vr||0)*0.92;
-      p.squish += (1-p.squish)*0.2;
-
-      p._touched=false;
-      const resting = collideFallingPoop(p);
-      p.contact = p._touched ? (p.contact||0)+1 : Math.max(0,(p.contact||0)-2);
-      if(p.contact>40){
-        const top = supportHeightAt(p.x);
-        if(isFinite(top)){ p.y=top-p.h/2; p.vx=0; p.vy=0; settlePoop(p); L.plops.splice(i,1); continue; }
-      }
-      if(resting && Math.abs(p.vy)<0.6 && Math.abs(p.vx)<0.6){
-        const off=p.x-L.plat.x, sup=restingSupport(off,p.w,p.y+p.h/2);
-        let committing=false;
-        if(sup){
-          const lo=sup.supL-(off-p.w/2), ro=(off+p.w/2)-sup.supR;
-          if(lo<=p.w*0.33 && ro<=p.w*0.33){
-            committing=true; p.stuck=0; p.settle=(p.settle||0)+1;
-            if(p.settle>=3){ settlePoop(p); L.plops.splice(i,1); continue; }
-          }
-        }
-        if(!committing){
-          p.settle=0; p.stuck=(p.stuck||0)+1;
-          let d;
-          if(sup) d = ((off+p.w/2)-sup.supR) > (sup.supL-(off-p.w/2)) ? 1 : -1;
-          else    d = (off>=0?1:-1);
-          p.x += d*(2.2+Math.min(p.stuck,8)*0.6);
-          p.vx = d*Math.max(Math.abs(p.vx),2);
-          if(p.stuck>1) p.vy = Math.max(p.vy,1.4);
-        }
-      } else { p.settle=0; p.stuck=0; }
-
-      if(p.y - p.h/2 > H){
-        L.plops.splice(i,1);
-        if(p.collapsed) continue;
-        L.misses++; splat(p.x,H-6); L.shake=Math.min(L.shake+6,14);
-        if(L.misses>=L.maxMiss){ L.result='lose'; L.resultT=0; }
-        continue;
-      }
-    }
-
-    updateStack();
-    if(!L.result && L.stack.length && stackTopWorldY() <= L.goalY){
+    const effOff = WB.updateStack(L, t);
+    if(effOff !== null && Math.abs(effOff) > L.plat.w/2 + L.margin){ L.result='lose'; L.resultT=0; L.shake=16; }
+    if(!L.result && L.stack.length && WB.stackTopWorldY(L) <= L.goalY){
       L.stacksDone++; L.banking=40;
       for(let k=0;k<16;k++) L.stars.push({ x:L.pileCOMx, y:L.goalY, vx:rand(-4,4), vy:rand(-6,-1),
         life:rand(24,44), col:['#ffe14d','#ff9ff3','#7bed9f','#70a1ff'][k%4] });
     }
 
-    for(let i=L.particles.length-1;i>=0;i--){
-      const pt=L.particles[i];
-      pt.x+=pt.vx; pt.y+=pt.vy; if(pt.g) pt.vy+=pt.g; pt.vx*=0.98; pt.life--;
-      if(pt.life<=0) L.particles.splice(i,1);
-    }
+    WB.updateParticles(L.particles);
   }
 
   function endLevel(success){
@@ -722,227 +381,6 @@
   }
 
   // =====================================================================
-  //  ART — copied from endless mode
-  // =====================================================================
-  function drawPoop(x,y,w,h,rot,squish,hue){
-    ctx.save(); ctx.translate(x,y); ctx.rotate(rot||0);
-    const bw=w, bh=h*(squish||1);
-    const base=`hsl(${28+(hue||0)}, 55%,`;
-    const g=ctx.createLinearGradient(0,-bh/2,0,bh/2);
-    g.addColorStop(0,`${base} 42%)`); g.addColorStop(1,`${base} 28%)`);
-    ctx.fillStyle=g; roundRect(-bw/2,-bh/2,bw,bh,Math.min(bw,bh)*0.28); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.22)';
-    roundRect(-bw/2+bw*0.14,-bh/2+bh*0.12,bw*0.34,bh*0.2,6); ctx.fill();
-    ctx.fillStyle='rgba(0,0,0,.10)';
-    ctx.beginPath(); ctx.arc(bw*0.16,bh*0.12,bw*0.12,0,7); ctx.fill();
-    ctx.beginPath(); ctx.arc(-bw*0.2,bh*0.02,bw*0.08,0,7); ctx.fill();
-    ctx.restore();
-  }
-  function drawPuddle(x,y,w,h){
-    ctx.save(); ctx.translate(x,y);
-    const g=ctx.createLinearGradient(0,-h/2,0,h/2);
-    g.addColorStop(0,'#8a6a2a'); g.addColorStop(1,'#5e451c');
-    ctx.fillStyle=g; roundRect(-w/2,-h/2,w,h,h/2); ctx.fill();
-    ctx.fillStyle='#5e451c';
-    ctx.beginPath(); ctx.arc(-w*0.3,h/2,4,0,7); ctx.arc(w*0.28,h/2+2,5,0,7); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.25)';
-    roundRect(-w*0.32,-h*0.28,w*0.3,h*0.3,4); ctx.fill();
-    ctx.restore();
-  }
-
-  const PAL_PLAYER = { body:'#8a6a4f', belly:'#a88465', ear:'#7a5c44', earIn:'#c39b7d',
-                       foot:'#6b4f3a', band:'#3d6b2e', dot:'#e74c3c' };
-  const PAL_RIVAL  = { body:'#6d6058', belly:'#8b7d72', ear:'#5d534c', earIn:'#a99a8d',
-                       foot:'#544a44', band:'#8a2a12', dot:'#f0c419' };
-  const PAL_MATE   = { body:'#9a6f57', belly:'#c39079', ear:'#87604c', earIn:'#e0b49b',
-                       foot:'#75543f', band:'#c94f8a', dot:'#fff0f6' };
-
-  // The exact endless wombat, parameterised so any wombat can use it.
-  function drawWombatArt(wb, scale, pal, extras){
-    pal = pal || PAL_PLAYER; scale = scale || 1; extras = extras || {};
-    const push  = wb.strain||0;
-    const turn  = clamp(wb.face||0,-1,1), tt = Math.abs(turn), s = turn<0?-1:1;
-    const blink = (wb.blink||0) > 0;
-    const mode  = wb.mode || 'crawl';
-
-    ctx.save();
-    ctx.translate(wb.x, wb.y + (wb.wob||0)*0.2);
-    ctx.scale(scale, scale);
-    const shakeX = push>0.35 ? Math.sin(t*1.1)*(push-0.35)*6 : 0;
-    ctx.translate(shakeX, push*4);
-    ctx.scale(1+push*0.07, 1+push*0.14);
-
-    const bw = 140*(1-tt*0.10);
-    const step = Math.sin(wb.crawl||0) * (mode==='crawl' ? 8 : 0);
-
-    ctx.fillStyle=pal.foot;
-    ctx.beginPath();
-    ctx.arc(-30+step, 52-Math.max(0,step)*0.4, 14, 0, 7);
-    ctx.arc(30-step, 52-Math.max(0,-step)*0.4, 14, 0, 7); ctx.fill();
-    if(mode==='crawl'){ ctx.fillStyle=pal.ear;
-      ctx.beginPath(); ctx.arc(-52*s+step*0.5, 30, 11, 0, 7); ctx.fill(); }
-
-    ctx.fillStyle=pal.body; roundRect(-bw/2,-52,bw,104,44); ctx.fill();
-    ctx.fillStyle=pal.belly; roundRect(-46+turn*12,-20,92*(1-tt*0.12),66,34); ctx.fill();
-
-    const earNearX=48*s, earFarX=-30*s, farScale=1-tt*0.55;
-    ctx.fillStyle=pal.ear;   ctx.beginPath(); ctx.arc(earFarX,-50,20*farScale,0,7); ctx.fill();
-    ctx.fillStyle=pal.earIn; ctx.beginPath(); ctx.arc(earFarX,-50,10*farScale,0,7); ctx.fill();
-    ctx.fillStyle=pal.ear;   ctx.beginPath(); ctx.arc(earNearX,-50,20,0,7); ctx.fill();
-    ctx.fillStyle=pal.earIn; ctx.beginPath(); ctx.arc(earNearX,-50,10,0,7); ctx.fill();
-
-    ctx.fillStyle=pal.band; roundRect(-72,-46,144,16,8); ctx.fill();
-    ctx.fillStyle=pal.dot;  ctx.beginPath(); ctx.arc(turn*10,-38,7,0,7); ctx.fill();
-    ctx.strokeStyle=pal.band; ctx.lineWidth=8; ctx.lineCap='round';
-    const tailX=-66*s;
-    ctx.beginPath(); ctx.moveTo(tailX,-40); ctx.lineTo(tailX-30*s,-24+Math.sin(t*0.2)*6); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(tailX,-36); ctx.lineTo(tailX-26*s,-6+Math.cos(t*0.2)*6); ctx.stroke();
-
-    if(tt>0.15){
-      ctx.fillStyle=pal.body;
-      ctx.beginPath(); ctx.ellipse(s*(bw/2-4),4,10*tt+8,15,0,0,7); ctx.fill();
-      ctx.fillStyle='#4a3220';
-      ctx.beginPath(); ctx.ellipse(s*(bw/2+6*tt),0,6,5,0,0,7); ctx.fill();
-    }
-
-    const eyeCX=turn*16, sep=26*(1-tt*0.32);
-    const eyeLX=eyeCX-sep, eyeRX=eyeCX+sep;
-    const lScale = turn>0 ? 1-tt*0.5 : 1, rScale = turn<0 ? 1-tt*0.5 : 1;
-
-    if(push>0.35 || extras.angry){
-      ctx.strokeStyle='#4a3220'; ctx.lineWidth=5; ctx.lineCap='round';
-      ctx.beginPath(); ctx.moveTo(eyeLX-11,-30); ctx.lineTo(eyeLX+7,-23); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(eyeRX+11,-30); ctx.lineTo(eyeRX-7,-23); ctx.stroke();
-    }
-    const drawEye=(ex,sc)=>{
-      if(sc<=0.02) return;
-      if(blink || push>0.55){
-        ctx.strokeStyle='#222'; ctx.lineWidth=3.2*sc; ctx.lineCap='round';
-        ctx.beginPath(); ctx.moveTo(ex-9*sc,-17); ctx.lineTo(ex,-12); ctx.lineTo(ex+9*sc,-17); ctx.stroke();
-      } else {
-        ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(ex,-14,12*sc,0,7); ctx.fill();
-        ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(ex+turn*3,-14+(push>0.3?3:0),6*sc,0,7); ctx.fill();
-      }
-    };
-    drawEye(eyeLX,lScale); drawEye(eyeRX,rScale);
-
-    if(push>0.4){
-      ctx.fillStyle=`rgba(230,90,70,${(push-0.4)*0.8})`;
-      ctx.beginPath(); ctx.arc(eyeLX-3,4,9,0,7); ctx.arc(eyeRX+3,4,9,0,7); ctx.fill();
-    }
-    if(tt<0.5){
-      ctx.globalAlpha = Math.max(0, 1-tt*2);
-      ctx.fillStyle='#4a3220'; roundRect(-10+turn*8,-4,20,14,6); ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-    ctx.lineCap='round';
-    if(mode==='eat'){
-      const open=Math.abs(Math.sin((wb.timer||0)*0.5));
-      ctx.fillStyle='#6e2b2b'; ctx.beginPath(); ctx.ellipse(0,13,12,3+open*11,0,0,7); ctx.fill();
-      ctx.fillStyle='#d67b7b'; ctx.beginPath(); ctx.ellipse(0,16+open*4,7,2+open*3,0,0,7); ctx.fill();
-      ctx.fillStyle='#fff'; ctx.fillRect(-8,13-(3+open*11),4,3); ctx.fillRect(4,13-(3+open*11),4,3);
-    } else if(push>0.5 || extras.angry){
-      ctx.fillStyle='#5a3a24'; ctx.beginPath(); ctx.ellipse(turn*6,17,9,6+push*4,0,0,7); ctx.fill();
-      ctx.strokeStyle='#fff'; ctx.lineWidth=2.5;
-      ctx.beginPath(); ctx.moveTo(turn*6-7,15); ctx.lineTo(turn*6+7,15); ctx.stroke();
-    } else {
-      ctx.strokeStyle='#4a3220'; ctx.lineWidth=4;
-      ctx.beginPath(); ctx.arc(turn*6,10,12,0.15*Math.PI,0.85*Math.PI); ctx.stroke();
-    }
-    if(push>0.6){
-      ctx.fillStyle='#7fd7ff';
-      const sy=-32+((t*1.2)%26)/26*12;
-      ctx.beginPath(); ctx.arc(eyeRX+20,sy,5,0,7); ctx.fill();
-    }
-    ctx.restore();
-
-    if(push>0.45){
-      ctx.fillStyle='#e74c3c'; ctx.font='bold 34px "Comic Sans MS", cursive'; ctx.textAlign='left';
-      ctx.fillText('!', wb.x+84*scale, wb.y-30*scale-push*6);
-      ctx.fillText('💨', wb.x-124*scale, wb.y+30*scale);
-    }
-    if(extras.love){
-      ctx.font=(20*Math.max(scale,0.6))+'px serif'; ctx.textAlign='center';
-      ctx.fillText('💗', wb.x+52*scale, wb.y-52*scale+Math.sin(t*0.1)*3);
-      ctx.fillText('💗', wb.x-52*scale, wb.y-44*scale+Math.cos(t*0.12)*3);
-    }
-  }
-
-  function drawLettuce(){
-    if(!L.lettuce) return;
-    const sc = L.lettuce.eatScale==null ? 1 : L.lettuce.eatScale;
-    if(sc<=0.02) return;
-    ctx.save();
-    ctx.translate(L.lettuce.x + L.lettuce.wob, L.lettuce.y);
-    ctx.rotate(L.lettuce.roll||0);
-    ctx.scale(sc,sc);
-    ctx.fillStyle='#7cc743';
-    for(let i=0;i<6;i++){ const a=i/6*Math.PI*2;
-      ctx.beginPath(); ctx.ellipse(Math.cos(a)*7,Math.sin(a)*5,9,7,a,0,7); ctx.fill(); }
-    ctx.fillStyle='#a6e06a'; ctx.beginPath(); ctx.arc(0,-1,9,0,7); ctx.fill();
-    ctx.strokeStyle='#4f8a24'; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(0,6); ctx.stroke();
-    ctx.restore();
-  }
-  function drawDiarrhea(){
-    for(const d of L.diarrhea){
-      ctx.save(); ctx.translate(d.x,d.y);
-      ctx.fillStyle='#6f4e1a';
-      ctx.beginPath(); ctx.ellipse(0,0,d.r*0.8,d.r*1.15,0,0,7); ctx.fill();
-      ctx.fillStyle='rgba(255,255,255,.3)';
-      ctx.beginPath(); ctx.arc(-d.r*0.25,-d.r*0.3,d.r*0.22,0,7); ctx.fill();
-      ctx.restore();
-    }
-  }
-  function drawParticles(){
-    for(const p of L.particles){
-      ctx.globalAlpha = Math.max(0, p.life/p.max);
-      if(p.kind==='star'){
-        ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(t*0.1);
-        ctx.fillStyle=p.color; ctx.beginPath();
-        for(let i=0;i<5;i++) ctx.lineTo(Math.cos((i*4*Math.PI)/5-Math.PI/2)*p.r, Math.sin((i*4*Math.PI)/5-Math.PI/2)*p.r);
-        ctx.closePath(); ctx.fill(); ctx.restore();
-      } else { ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill(); }
-    }
-    ctx.globalAlpha = 1;
-  }
-  function drawTopPlat(){
-    ctx.save(); ctx.translate(topPlat.x, topPlat.y);
-    ctx.fillStyle='#6f451f';
-    ctx.fillRect(-topPlat.w/2+10, topPlat.h/2, 14, 40);
-    ctx.fillRect(topPlat.w/2-24, topPlat.h/2, 14, 40);
-    const g=ctx.createLinearGradient(0,-topPlat.h/2,0,topPlat.h/2);
-    g.addColorStop(0,'#c98b4a'); g.addColorStop(1,'#9c6531');
-    ctx.fillStyle=g; roundRect(-topPlat.w/2,-topPlat.h/2,topPlat.w,topPlat.h,8); ctx.fill();
-    ctx.strokeStyle='#6f451f'; ctx.lineWidth=3; ctx.stroke();
-    ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=2;
-    for(let x=-topPlat.w/2+40; x<topPlat.w/2; x+=70){
-      ctx.beginPath(); ctx.moveTo(x,-topPlat.h/2+2); ctx.lineTo(x,topPlat.h/2-2); ctx.stroke(); }
-    ctx.restore();
-  }
-  function drawPlatform(){
-    ctx.save(); ctx.translate(L.plat.x, L.plat.y);
-    ctx.fillStyle='#7a5230'; ctx.fillRect(-8, L.plat.h/2, 16, H);
-    const g=ctx.createLinearGradient(0,-L.plat.h/2,0,L.plat.h/2);
-    g.addColorStop(0,'#c98b4a'); g.addColorStop(1,'#9c6531');
-    ctx.fillStyle=g; roundRect(-L.plat.w/2,-L.plat.h/2,L.plat.w,L.plat.h,10); ctx.fill();
-    ctx.strokeStyle='#6f451f'; ctx.lineWidth=3; ctx.stroke();
-    ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=2;
-    for(let gx=-L.plat.w/2+22; gx<L.plat.w/2; gx+=44){
-      ctx.beginPath(); ctx.moveTo(gx,-L.plat.h/2+3); ctx.lineTo(gx,L.plat.h/2-3); ctx.stroke(); }
-    ctx.restore();
-  }
-  function drawStack(){
-    const lean = clamp(L.pileSwayShown,-0.5,0.5);
-    for(const c of L.stack){
-      const above = Math.max(0, platTop() - (c.y+c.h/2));
-      const dx = lean*above*0.5;
-      if(c.melting||c.melted) drawPuddle(c.x+dx, c.y, c.w, c.h);
-      else drawPoop(c.x+dx, c.y, c.w, c.h, c.rot||0, c.squish, c.hue);
-    }
-  }
-
-  // =====================================================================
   //  RENDER
   // =====================================================================
   function drawSky(){ const g=ctx.createLinearGradient(0,0,0,H);
@@ -951,7 +389,7 @@
   function render(){
     // Re-assert the DPR transform every frame: resizing the canvas wipes context
     // state, and this makes the base transform immune to any save/restore drift.
-    ctx.setTransform(sx, 0, 0, sy, 0, 0);
+    ctx.setTransform(disp.sx, 0, 0, disp.sy, 0, 0);
     ctx.clearRect(0,0,W,H);
     if(mode===MODE.INTRO) drawIntro();
     else if(mode===MODE.LEVEL && L) drawLevel();
@@ -1122,29 +560,18 @@
     const sx=(Math.random()-0.5)*L.shake, sy=(Math.random()-0.5)*L.shake;
     ctx.translate(sx,sy);
 
-    // ground
-    ctx.fillStyle='#7cc23f'; ctx.fillRect(0, L.plat.y+8, W, H);
-    ctx.fillStyle='#5aa72f';
-    for(let i=0;i<24;i++){ const gx=i*32-30, gy=L.plat.y+8;
-      ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+7,gy-16); ctx.lineTo(gx+14,gy); ctx.fill(); }
-
-    // goal line
-    ctx.setLineDash([20,14]); ctx.lineDashOffset=-(t*0.6%34); ctx.lineWidth=4;
-    ctx.strokeStyle='#e23b2e'; ctx.globalAlpha=0.78+Math.sin(t*0.14)*0.22;
-    ctx.beginPath(); ctx.moveTo(0,L.goalY); ctx.lineTo(W,L.goalY); ctx.stroke();
-    ctx.setLineDash([]); ctx.globalAlpha=1;
-    ctx.fillStyle='#e23b2e'; ctx.font='bold 19px "Comic Sans MS",cursive'; ctx.textAlign='right';
-    ctx.fillText('🎯 GOAL', W-14, L.goalY-9); ctx.textAlign='left';
-
-    drawPlatform();
-    drawStack();
+    drawGround(L.plat);
+    drawGoalLine(L.goalY);
+    drawPlatform(L.plat);
+    drawStack(L, true);
     for(const p of L.plops) drawPoop(p.x,p.y,p.w,p.h,p.rot,p.squish,p.hue);
-    drawDiarrhea();
+    drawDiarrhea(L.diarrhea, L.camOffset);
     for(const s of L.stars){ ctx.globalAlpha=clamp(s.life/20,0,1); ctx.fillStyle=s.col;
       ctx.beginPath(); ctx.arc(s.x,s.y,5,0,7); ctx.fill(); }
     ctx.globalAlpha=1;
 
-    drawTopPlat();
+    drawTopPlat(0);
+
     // invading rivals up on the plank with your wombat
     for(const f of L.foes){
       const windUp = f.wind>0 ? Math.sin((26-f.wind)/26*Math.PI)*10 : 0;
@@ -1156,16 +583,16 @@
         ctx.textAlign='left';
       }
     }
-    drawLettuce();
+    drawLettuce(L.lettuce, 0);
     drawWombatArt(L.wombat, 1, PAL_PLAYER, {});
-    drawParticles();
+    drawParticles(L.particles);
 
     ctx.restore();
 
     // HUD
     ctx.fillStyle='#2d5016'; ctx.font='bold 25px "Comic Sans MS",cursive'; ctx.textAlign='left';
     ctx.fillText((L.node.type==='mate'?'💗 Impress ':'😤 Out-stack ')+L.node.name, 16, 38);
-    const tall = Math.round((platTop()-stackTopWorldY())/42);
+    const tall = Math.round((WB.platTop(L)-WB.stackTopWorldY(L))/42);
     ctx.font='17px "Comic Sans MS",cursive';
     ctx.fillText('stack '+Math.min(L.stacksDone+1,L.stacksNeeded)+' / '+L.stacksNeeded
       +'   ·   height '+tall+' / '+L.target, 16, 62);
@@ -1220,12 +647,11 @@
     } else if(mode===MODE.LEVEL && L) updateLevel();
   }
 
-  const keys={}; let pointerX=null;
-  window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()]=true;
+  const input = { keys:{}, pointerX:null };
+  window.addEventListener('keydown', e=>{ input.keys[e.key.toLowerCase()]=true;
     if([' ','arrowleft','arrowright'].includes(e.key.toLowerCase())) e.preventDefault(); });
-  window.addEventListener('keyup', e=> keys[e.key.toLowerCase()]=false);
-  function canvasPt(cx,cy){ const r=cv.getBoundingClientRect();
-    return { x:(cx-r.left)*(W/r.width), y:(cy-r.top)*(H/r.height) }; }
+  window.addEventListener('keyup', e=> input.keys[e.key.toLowerCase()]=false);
+  const canvasPt = (cx,cy) => WB.canvasPt(cv, cx, cy);
   function onDown(px,py){
     if(mode===MODE.INTRO){
       if(pendingSave){
@@ -1245,13 +671,13 @@
         } }
     }
   }
-  cv.addEventListener('mousedown', e=>{ const p=canvasPt(e.clientX,e.clientY); pointerX=p.x; onDown(p.x,p.y); });
-  cv.addEventListener('mousemove', e=>{ if(mode===MODE.LEVEL){ pointerX=canvasPt(e.clientX,e.clientY).x; } });
-  cv.addEventListener('mouseleave', ()=> pointerX=null);
+  cv.addEventListener('mousedown', e=>{ const p=canvasPt(e.clientX,e.clientY); input.pointerX=p.x; onDown(p.x,p.y); });
+  cv.addEventListener('mousemove', e=>{ if(mode===MODE.LEVEL){ input.pointerX=canvasPt(e.clientX,e.clientY).x; } });
+  cv.addEventListener('mouseleave', ()=> input.pointerX=null);
   cv.addEventListener('touchstart', e=>{ const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
-    pointerX=p.x; onDown(p.x,p.y); e.preventDefault(); }, {passive:false});
+    input.pointerX=p.x; onDown(p.x,p.y); e.preventDefault(); }, {passive:false});
   cv.addEventListener('touchmove', e=>{ const p=canvasPt(e.touches[0].clientX,e.touches[0].clientY);
-    if(mode===MODE.LEVEL) pointerX=p.x; e.preventDefault(); }, {passive:false});
+    if(mode===MODE.LEVEL) input.pointerX=p.x; e.preventDefault(); }, {passive:false});
 
   // Mobile webviews get killed while backgrounded and never see 'unload', so
   // flush on the events that do fire first.
