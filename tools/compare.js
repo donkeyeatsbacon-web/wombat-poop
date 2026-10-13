@@ -284,7 +284,7 @@ let ok = true;
 for(const page of pages) for(const skill of skills) for(const seed of opts.seeds){
   // a version that throws (say, it can't even start) is a difference, not a tool crash
   try { ok = run(oldDir, newDir, page, opts.frames, seed, skill) && ok; }
-  catch(e){ ok = false; console.log(`${page} seed=${seed}: THREW ${e.stack.split('\n').slice(0,2).join(' ')}`); }
+  catch(e){ ok = false; console.log(`${page} seed=${seed}: THREW ${e.name}: ${e.message} (${e.stack.split('\n')[0]})`); }
 }
 console.log(ok ? 'PASS: no behaviour differences found' : 'FAIL: versions differ');
 process.exitCode = ok ? 0 : 1;
