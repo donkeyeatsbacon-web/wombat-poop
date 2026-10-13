@@ -350,7 +350,33 @@
       ctx.restore();
     }
 
-    return { roundRect, drawPoop, drawPuddle, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
+    // a rounded, labelled button: b = {x,y,w,h}
+    function drawButton(b, label, fill, edge, size){
+      size = size || 25;
+      ctx.save();
+      ctx.fillStyle=fill; ctx.strokeStyle=edge; ctx.lineWidth=4;
+      roundRect(b.x,b.y,b.w,b.h,14); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=edge; ctx.font='bold '+size+'px "Comic Sans MS",cursive'; ctx.textAlign='center';
+      ctx.fillText(label, b.x+b.w/2, b.y+b.h/2+size*0.36);
+      ctx.restore();
+    }
+
+    // the round in-game button: b = {x,y,r}, icon 'pause' (two bars) or 'menu' (three lines)
+    function drawRoundButton(b, icon){
+      ctx.save();
+      ctx.fillStyle='rgba(255,255,255,.78)'; ctx.strokeStyle='#2d5016'; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#2d5016';
+      if(icon === 'menu'){
+        for(let i=-1;i<=1;i++){ roundRect(b.x-10, b.y+i*7-1.5, 20, 3.5, 1.7); ctx.fill(); }
+      } else {
+        roundRect(b.x-8, b.y-9, 5.5, 18, 2); ctx.fill();
+        roundRect(b.x+2.5, b.y-9, 5.5, 18, 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    return { roundRect, drawButton, drawRoundButton, drawPoop, drawPuddle, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
              drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine };
   };
 })();

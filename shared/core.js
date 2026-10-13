@@ -77,6 +77,21 @@
     return { x: (clientX - r.left) * (WB.W / r.width), y: (clientY - r.top) * (WB.H / r.height) };
   };
 
+  // hit tests in logical canvas units: b = {x,y,w,h} rectangle or {x,y,r} circle.
+  // Round buttons get extra slop so they're easy to hit with a finger.
+  WB.hitBtn = (b, px, py) => px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h;
+  WB.hitRound = (b, px, py) => Math.hypot(px - b.x, py - b.y) <= b.r + 16;
+
+  // Leave the game for the mode-select page.
+  WB.toMenu = () => { window.location.href = 'index.html'; };
+
+  // Call onAway whenever the player leaves the game: switches tab or app,
+  // locks the phone, or focuses another window.
+  WB.onAway = function(onAway){
+    document.addEventListener('visibilitychange', () => { if(document.hidden) onAway(); });
+    window.addEventListener('blur', onAway);
+  };
+
   // Move the catch platform from held arrow/A-D keys, else ease toward the
   // pointer. A key press drops the pointer so the two don't fight.
   WB.steerPlatform = function(S, input){
