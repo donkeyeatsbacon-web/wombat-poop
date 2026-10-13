@@ -1,0 +1,279 @@
+COMBAT WOMBAT: POOP STACKER - PLAY-TEST AND RELEASE PLAN
+=========================================================
+Written 2026-10-13 from a read-through of wombat-poop.html,
+wombat-campaign.html, shared/*.js and index.html.
+
+
+1. WHERE THE GAME STANDS
+------------------------
+
+Both modes play from start to finish, and the core is solid: the stacking
+physics, the wobble, the lettuce/diarrhea twist, the campaign map and
+save/resume all work. tools/compare.js can check that cleanups don't change
+behaviour.
+
+What's missing for a public release is mostly not the core game. It's the
+things players hit in their first minute: finding both modes, the game running
+at the right speed on their screen, sound, being able to pause on a phone, and
+understanding the campaign's rules. Section 2 lists the problems found in the
+code. Section 3 is how to play-test. Section 4 is the improvement backlog.
+Section 5 is the final release checklist.
+
+
+2. PROBLEMS FOUND IN THE CODE
+-----------------------------
+
+Each item says where it is and why it matters. They're ordered by how badly
+they hurt a new player.
+
+BLOCKERS (fix before anyone outside plays it)
+
+B1. The game runs faster on high-refresh-rate screens.
+    Every update is "one step per animation frame" (t++ in update(); fixed
+    per-frame gravity, speeds and timers in shared/physics.js and
+    shared/wombat.js). On 120 Hz phones (recent iPhones and many Androids)
+    and 144 Hz monitors, everything runs 2-2.4x faster, including poops
+    falling, the wombat, timers and wobble. The game will feel much harder
+    for many players and nobody will know why.
+    Fix: run the simulation on a fixed 60 steps/second clock (accumulate
+    real elapsed time and run update() 0..n times per frame), and only
+    render once per frame. Keep 60 Hz behaviour identical so
+    tools/compare.js still passes.
+
+B2. There's no way to reach the campaign.
+    index.html redirects straight to endless mode, and neither page links
+    to the other. The campaign is only reachable by typing its URL.
+    Fix: a small title / mode-select screen (or buttons on endless mode's
+    title and game-over screens, plus a "back to menu" on the campaign
+    intro).
+
+B3. Players can't pause on a phone.
+    Pause is the P key only (endless), and the campaign has no pause at
+    all. On phones there's also no auto-pause: if a call or notification
+    pulls the player away, the game picks straight back up mid-fall when
+    they return (rAF stops while hidden, so nothing warns them).
+    Fix: an on-screen pause button in both modes, and auto-pause on
+    'visibilitychange' / 'blur'.
+
+B4. Players may get mismatched files after an update.
+    The pages load shared/*.js and shared/base.css with plain URLs.
+    GitHub Pages caches files for about 10 minutes, so a player can get a
+    new page with an old shared script (or the reverse) right after a push,
+    and the game can break.
+    Fix: add a version query (shared/physics.js?v=7) and bump it whenever
+    shared/ changes. A tiny build/deploy step could do this, but by hand is
+    fine for now.
+
+IMPORTANT (fix before a wider release)
+
+I1. The game has no sound.
+    There's no audio of any kind. Plops landing, the strain, a miss, a
+    topple, level-up, lettuce crunch and diarrhea are all crying out for
+    sound effects, and sound does a lot for the comedy. Needs a mute toggle
+    that's remembered, and audio must start only after the first tap
+    (browser autoplay rules).
+
+I2. Invading rivals pile up on the burrow (campaign).
+    A rival that finishes its march sits exactly on the burrow
+    (nodePos() with march = 1 returns the home position). Two or three
+    invaders draw on top of each other with overlapping labels, and a tap
+    always picks whichever is first in the list. The others can't be
+    selected.
+    Fix: give each invader its own spot in a ring around the burrow.
+
+I3. Buffs and debuffs are never explained in-game (campaign).
+    The overworld shows only their emoji at the bottom. The descriptions
+    ("Wider catch platform"...) exist in BUFFS/DEBUFFS but are never
+    displayed. The "Trampled" debuff also uses 😤, the same icon as
+    rivals.
+    Fix: tap an icon to see its name and effect, and pick a different
+    icon for Trampled.
+
+I4. The on-page hint text sits over the game and assumes a keyboard.
+    The #hint line at the bottom of the window draws over the canvas's
+    grass on phones, and talks about arrow keys and P to a touch player.
+    Fix: show touch or keyboard wording depending on the device, and move
+    it into the canvas's own title screen or hide it once play starts.
+
+I5. A campaign loss is abrupt.
+    In endless mode the tower falls apart. In a campaign level it instantly
+    shows "Failed!" with the tower still standing. The campaign also has no
+    way to give up a level and go back to the map.
+    Fix: reuse endless mode's topple animation, and add a "retreat" option
+    from the pause menu.
+
+I6. The font changes from device to device.
+    The font stack is Comic Sans MS -> Chalkboard SE -> Comic Neue ->
+    cursive, and Comic Neue isn't loaded. Android, Linux and some Windows
+    setups fall back to a generic cursive or sans font, which changes the
+    look and can push text wider than it was designed for (HUD lines,
+    campaign toasts).
+    Fix: bundle a free font (e.g. Comic Neue, OFL licence) in shared/.
+
+I7. Emoji look different on every platform.
+    Toilet-paper lives, HUD icons, buff icons and 💨 are emoji. They look
+    different on each platform, and older Android may show 🧻 as a box.
+    Check on real devices (section 3). If they look bad, draw them on the
+    canvas the way the poops are drawn.
+
+POLISH (good to have for release)
+
+P1. No favicon, link-preview description or share image. Links shared in
+    chats will look bare. Add <meta name="description">, Open Graph tags and
+    an icon.
+P2. No "add to home screen" support (web app manifest + icons). With an
+    offline service worker it would play like an app on phones.
+P3. Endless mode hides the mouse cursor (cursor: none) on the menus and
+    game-over screen too, not just during play.
+P4. The campaign has only 4 mate names and 4 rival names, so long seasons
+    repeat them a lot.
+P5. The endless high score is a single personal best. A short local top-5
+    gives players a reason to keep going.
+P6. Nothing on screen shows how many plops the current level needs, or what
+    a new player should do on their first poop. A one-time tutorial prompt
+    ("slide here to catch!") would help.
+
+
+3. PLAY-TEST PLAN
+-----------------
+
+Phase A - Check it yourself (after the blockers, about 2 evenings)
+
+  Device matrix. Play 5 minutes of each mode on each:
+    [ ] Desktop Chrome or Edge, 60 Hz monitor, mouse
+    [ ] Desktop with a 120/144 Hz monitor (or Chrome DevTools frame-rate
+        emulation) - checks B1
+    [ ] Desktop Firefox
+    [ ] Desktop Safari (if a Mac is available)
+    [ ] iPhone Safari, portrait and landscape, with notch/home bar
+    [ ] Android Chrome, a mid-range or older phone if possible
+    [ ] A tablet
+    [ ] The game opened straight from disk (file://)
+
+  On each one, check:
+    [ ] The text and art are sharp, nothing sits under the notch or home bar
+    [ ] It runs smoothly with a tall pile and lots of particles (no stutter)
+    [ ] The speed feels the same as on the reference desktop
+    [ ] Touch dragging is responsive and the page never scrolls or zooms
+    [ ] The high-score name box works with the on-screen keyboard
+    [ ] Rotating the device or resizing the window mid-game doesn't break it
+    [ ] Leaving and returning (home button, tab switch, phone call) pauses
+    [ ] Campaign: progress survives closing the tab mid-season and mid-level
+    [ ] Emoji and fonts look right (I6, I7)
+    [ ] Sound plays and the mute toggle works (once I1 is done)
+
+  Edge cases to try deliberately:
+    [ ] Lose all toilet paper and topple in the same moment
+    [ ] Eat lettuce right as a level-up happens
+    [ ] Melt the bottom poop of a tall pile (collapse chain)
+    [ ] Campaign: let 3+ rivals invade (checks I2), reach 100 charm and
+        100 threat on the same day, win and lose seasons, start a new one
+    [ ] Private/incognito browsing (storage may be blocked) - should still
+        play, just without saving
+    [ ] Clear site data mid-campaign and reload
+
+Phase B - Watch other people play (5-8 people, about 1 week)
+
+  Pick testers who have never seen the game: some gamers, some not, at
+  least half on phones. Ideally sit with them, or have them screen-record.
+  Give no instructions beyond "here's a game".
+
+  Watch for, and write down:
+    - How long until they understand they move the platform
+    - Whether they find the campaign at all (B2)
+    - The first moment they look confused or frustrated
+    - What makes them laugh (keep and expand those)
+    - Whether they read the Wobble-O-Meter, and if they understand toppling
+    - Campaign: do they understand mates vs rivals, charm vs threat, buffs
+    - When they stop playing, and why
+
+  Ask afterwards (keep it short):
+    1. What was the game about?
+    2. What was the most fun moment? The most annoying one?
+    3. Did anything feel unfair?
+    4. Endless: did it get too hard too fast, or too slowly?
+    5. Campaign: did you know what to do on the map?
+    6. Would you play again tomorrow? Send it to a friend?
+
+  Optional: keep anonymous play stats in localStorage only (games played,
+  average score, level reached, cause of death, campaign win/loss and day).
+  Have testers read them off a hidden screen. This is better than guessing
+  at balance.
+
+Phase C - Balance pass (after Phase B)
+
+  Tune using the TUNE blocks and the constants they point to. Re-test after
+  each change.
+
+  Endless:
+    - Time to first topple for a new player (target: 60-90 s first game)
+    - The difficulty ramp: poop delay min 70 frames at score >= 133; does
+      it plateau too early?
+    - Lettuce frequency (0.0016/frame, about one every 10 s of crawling)
+      and how punishing the 3.5 s of diarrhea is
+    - Does reaching level 2+ feel achievable and rewarding?
+  Campaign:
+    - Season length (target: 15-25 minutes for a win)
+    - Rival speeds/delays vs mates wandering off; threat +5/+10 per rival
+      per day can snowball once two invaders arrive
+    - Whether the buffs feel strong enough to notice, and the debuffs fair
+    - Target stack heights (4-5 rising with waves) vs the campaign's softer
+      physics
+
+  Use tools/compare.js whenever you clean up code between tuning changes,
+  so cleanups never quietly change the balance.
+
+Phase D - Final check (release candidate, 1-2 days)
+
+  Re-run Phase A's device matrix on the exact build you'll publish, plus
+  2-3 fresh testers for a short Phase B.
+
+
+4. IMPROVEMENT BACKLOG, IN ORDER
+--------------------------------
+
+  Sprint 1 - Blockers
+    1. Fixed 60 steps/second simulation clock (B1); verify with compare.js
+    2. Pause button + auto-pause in both modes (B3)
+    3. Mode select / links between modes (B2)
+    4. Cache-busting versions on shared files (B4)
+    -> Then Phase A
+
+  Sprint 2 - The first minute
+    5. Sound effects + remembered mute toggle (I1)
+    6. Device-aware hint text / first-play tutorial prompt (I4, P6)
+    7. Bundle the font (I6); fix any emoji that look bad (I7)
+    -> Then Phase B
+
+  Sprint 3 - The campaign
+    8. Invader positions around the burrow (I2)
+    9. Buff/debuff explanations + new Trampled icon (I3)
+   10. Campaign topple animation + retreat option (I5)
+   11. More wombat names (P4)
+    -> Then Phase C balance pass
+
+  Sprint 4 - Release polish
+   12. Favicon, description, share image (P1)
+   13. Show the cursor outside play (P3)
+   14. Local top-5 scores (P5)
+   15. Optional: installable web app + offline play (P2)
+    -> Then Phase D
+
+
+5. RELEASE CHECKLIST
+--------------------
+
+  [ ] All blockers (B1-B4) fixed and checked on real devices
+  [ ] Phase B feedback reviewed; anything 3+ testers tripped over is fixed
+  [ ] Phase C balance targets met
+  [ ] node tools/compare.js passes for every cleanup since the last
+      deliberate gameplay change
+  [ ] No console errors in any browser in the matrix
+  [ ] Page title, description, favicon and share preview look right
+      (paste the link into a chat app to check)
+  [ ] README is up to date (controls, modes, any new features)
+  [ ] Shared-file version numbers bumped for the release build
+  [ ] Final build loads from the live GitHub Pages URL on a phone that
+      has never visited it before
+  [ ] Tag the release in git (e.g. v1.0) so it can be found and compared
+      against later
