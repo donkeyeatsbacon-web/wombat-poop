@@ -1,15 +1,23 @@
 // Drawing shared by both modes. WB.createArt(ctx, now) returns the drawing
 // functions bound to one canvas context; `now()` gives the current frame count
 // for anything animated (wombat headband tails, spinning stars, the goal line).
+//
+// Art style: cartoon with thick dark outlines (WB.INK) and flat colours with
+// one shade, so shapes stay readable small and against busy backgrounds. New
+// art should follow suit: fill, then stroke with INK.
 (() => {
   const { W, H, topPlat, clamp } = WB;
+  const INK = WB.INK = '#2a1c12';
+  const TAU = Math.PI * 2;
 
-  WB.PAL_PLAYER = { body:'#8a6a4f', belly:'#a88465', ear:'#7a5c44', earIn:'#c39b7d',
-                    foot:'#6b4f3a', band:'#3d6b2e', dot:'#e74c3c' };
-  WB.PAL_RIVAL  = { body:'#6d6058', belly:'#8b7d72', ear:'#5d534c', earIn:'#a99a8d',
-                    foot:'#544a44', band:'#8a2a12', dot:'#f0c419' };
-  WB.PAL_MATE   = { body:'#9a6f57', belly:'#c39079', ear:'#87604c', earIn:'#e0b49b',
-                    foot:'#75543f', band:'#c94f8a', dot:'#fff0f6' };
+  // wombat colour schemes: fur, its shade, belly/muzzle, inner ear, headband + knot
+  WB.PAL_PLAYER = { fur:'#9b7556', shade:'#7b5a40', belly:'#e3be98', earIn:'#e9a98f', band:'#2f8a3a', dot:'#ff5a4e' };
+  WB.PAL_RIVAL  = { fur:'#7d7068', shade:'#5d534c', belly:'#bfb0a2', earIn:'#c9998d', band:'#a3321a', dot:'#f0c419' };
+  WB.PAL_MATE   = { fur:'#a87a5e', shade:'#855b44', belly:'#f2cfb2', earIn:'#f3a3b6', band:'#d0508f', dot:'#fff0f6' };
+
+  // The cartoon wombat is drawn standing on its feet; this scales it to the
+  // size of the game's original art, whose body centre sat 66 above the feet.
+  const WOMBAT_SIZE = 0.9, FEET_BELOW = 66;
 
   WB.createArt = function(ctx, now){
 
@@ -23,28 +31,25 @@
       ctx.arcTo(x,y,x+w,y,r);
       ctx.closePath();
     }
+    function ell(x, y, rx, ry, rot){ ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot || 0, 0, TAU); }
+    // fill the current path, then outline it
+    function inked(fill){ ctx.fillStyle = fill; ctx.fill(); ctx.stroke(); }
 
+    // a poop cube: flat fill, a darker lower band, a highlight, and an outline
     function drawPoop(x,y,w,h,rot,squish,hue){
       ctx.save();
       ctx.translate(x,y);
       ctx.rotate(rot||0);
-      const bw = w, bh = h*(squish||1);
-      // body
-      const base = `hsl(${28+(hue||0)}, 55%,`;
-      const g = ctx.createLinearGradient(0,-bh/2,0,bh/2);
-      g.addColorStop(0, `${base} 42%)`);
-      g.addColorStop(1, `${base} 28%)`);
-      ctx.fillStyle = g;
-      roundRect(-bw/2, -bh/2, bw, bh, Math.min(bw,bh)*0.28);
-      ctx.fill();
-      // shine
-      ctx.fillStyle = 'rgba(255,255,255,.22)';
-      roundRect(-bw/2+bw*0.14, -bh/2+bh*0.12, bw*0.34, bh*0.2, 6);
-      ctx.fill();
-      // a couple of darker lumps for texture (no face)
-      ctx.fillStyle = 'rgba(0,0,0,.10)';
-      ctx.beginPath(); ctx.arc(bw*0.16, bh*0.12, bw*0.12, 0, 7); ctx.fill();
-      ctx.beginPath(); ctx.arc(-bw*0.2, bh*0.02, bw*0.08, 0, 7); ctx.fill();
+      const bw = w, bh = h*(squish||1), r = Math.min(bw,bh)*0.28, hh = 28+(hue||0);
+      ctx.fillStyle = `hsl(${hh}, 52%, 37%)`;
+      roundRect(-bw/2, -bh/2, bw, bh, r); ctx.fill();
+      ctx.save(); ctx.clip();
+      ctx.fillStyle = `hsl(${hh}, 55%, 27%)`; ctx.fillRect(-bw/2, bh*0.16, bw, bh);
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,.45)';
+      ell(-bw*0.2, -bh*0.24, bw*0.17, bh*0.09, -0.4); ctx.fill();
+      ctx.lineWidth = 3.5; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
+      roundRect(-bw/2, -bh/2, bw, bh, r); ctx.stroke();
       ctx.restore();
     }
 
@@ -52,16 +57,15 @@
     function drawPuddle(x, y, w, h){
       ctx.save();
       ctx.translate(x, y);
-      const g = ctx.createLinearGradient(0,-h/2,0,h/2);
-      g.addColorStop(0,'#8a6a2a'); g.addColorStop(1,'#5e451c');
-      ctx.fillStyle = g;
-      roundRect(-w/2, -h/2, w, h, h/2); ctx.fill();
+      ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
       // drips down the sides
-      ctx.fillStyle = '#5e451c';
-      ctx.beginPath(); ctx.arc(-w*0.3, h/2, 4, 0, 7); ctx.arc(w*0.28, h/2+2, 5, 0, 7); ctx.fill();
-      // shine
-      ctx.fillStyle = 'rgba(255,255,255,.25)';
-      roundRect(-w*0.32, -h*0.28, w*0.3, h*0.3, 4); ctx.fill();
+      ctx.fillStyle = '#6b4f1e';
+      ell(-w*0.3, h/2, 4.5, 5); ctx.fill(); ctx.stroke();
+      ell(w*0.28, h/2+2, 5, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#8a6a2a';
+      roundRect(-w/2, -h/2, w, h, h/2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.4)';
+      ell(-w*0.18, -h*0.12, w*0.14, Math.max(1.5, h*0.14)); ctx.fill();
       ctx.restore();
     }
 
@@ -83,131 +87,122 @@
     }
 
     // The combat wombat, parameterised so any wombat can use it: wb carries
-    // x, y, face, strain, crawl, wob, mode, timer, blink. extras: angry (brows +
-    // grimace), love (floating hearts), lift (raise the body but not its effort
-    // marks — endless mode's level-up leap).
+    // x, y (body centre), face (-1 left .. 1 right), strain (0..1), crawl (walk
+    // cycle), wob, mode ('crawl', 'eat', ...), timer, blink. extras: angry
+    // (brows + grimace), love (floating hearts), lift (raise the body but not
+    // its effort marks — endless mode's level-up leap).
     function drawWombatArt(wb, scale, pal, extras){
       pal = pal || WB.PAL_PLAYER; scale = scale || 1; extras = extras || {};
       const t = now();
-      const push  = wb.strain||0;                     // 0..1 pushing effort
-      const turn  = clamp(wb.face||0,-1,1);           // -1 left .. +1 right
-      const tt    = Math.abs(turn);
-      const s     = turn<0?-1:1;                      // facing side
-      const blink = (wb.blink||0) > 0;
-      const mode  = wb.mode || 'crawl';
+      const p = wb.strain||0, f = clamp(wb.face||0,-1,1), af = Math.abs(f), sg = f<0 ? -1 : 1;
+      const blink = (wb.blink||0) > 0, mode = wb.mode || 'crawl', walking = mode === 'crawl';
+      const ph = wb.crawl||0, angry = !!extras.angry;
 
       ctx.save();
-      ctx.translate(wb.x, wb.y + (wb.wob||0)*0.2 - (extras.lift||0));
-      ctx.scale(scale, scale);
-      // scrunch: shake, squash down and widen when forcing one out
-      const shakeX = push>0.35 ? Math.sin(t*1.1)*(push-0.35)*6 : 0;
-      ctx.translate(shakeX, push*4);
-      ctx.scale(1+push*0.07, 1+push*0.14);
+      ctx.translate(wb.x, wb.y + FEET_BELOW*scale + (wb.wob||0)*0.2*scale - (extras.lift||0));
+      ctx.scale(scale*WOMBAT_SIZE, scale*WOMBAT_SIZE);
+      ctx.lineWidth = 4.5; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      // a shake when forcing one out
+      ctx.translate(p > 0.35 ? Math.sin(t*1.1)*(p-0.35)*7 : 0, 0);
 
-      const bw = 140*(1-tt*0.10);                     // body narrows a touch when turned
-      const step = Math.sin(wb.crawl||0) * (mode==='crawl' ? 8 : 0);
+      // feet shuffle while walking
+      const lf = walking ? Math.max(0, Math.sin(ph))*8 : 0, rf = walking ? Math.max(0, -Math.sin(ph))*8 : 0;
+      ell(-24 + f*8, -9 - lf, 18, 10); inked(pal.shade);
+      ell(24 + f*8, -9 - rf, 18, 10); inked(pal.shade);
+      // the rest bobs with each step and squashes down when straining
+      ctx.translate(0, walking ? -Math.abs(Math.sin(ph))*6 : 0);
+      ctx.scale(1 + p*0.08, 1 - p*0.1);
 
-      // feet (behind body)
-      ctx.fillStyle=pal.foot;
-      ctx.beginPath();
-      ctx.arc(-30+step, 52-Math.max(0,step)*0.4, 14, 0, 7);
-      ctx.arc(30-step, 52-Math.max(0,-step)*0.4, 14, 0, 7); ctx.fill();
-      // trailing front paw reaching when crawling
-      if(mode==='crawl'){ ctx.fillStyle=pal.ear;
-        ctx.beginPath(); ctx.arc(-52*s+step*0.5, 30, 11, 0, 7); ctx.fill(); }
+      // body, belly, arms
+      ell(0, -46, 54, 40); inked(pal.fur);
+      ctx.fillStyle = pal.belly; ell(f*12, -38, 31, 25); ctx.fill();
+      const sw = walking ? Math.sin(ph)*5 : 0;
+      ell(-50 + f*6, -44 + sw, 11, 16, 0.45); inked(pal.fur);
+      ell(50 + f*6, -44 - sw, 11, 16, -0.45); inked(pal.fur);
 
-      // body, and a belly that drifts toward the side it's facing
-      ctx.fillStyle=pal.body; roundRect(-bw/2,-52,bw,104,44); ctx.fill();
-      ctx.fillStyle=pal.belly; roundRect(-46+turn*12,-20,92*(1-tt*0.12),66,34); ctx.fill();
-
-      // ears — far ear tucks smaller behind the head
-      const earNearX=48*s, earFarX=-30*s, farScale=1-tt*0.55;
-      ctx.fillStyle=pal.ear;   ctx.beginPath(); ctx.arc(earFarX,-50,20*farScale,0,7); ctx.fill();
-      ctx.fillStyle=pal.earIn; ctx.beginPath(); ctx.arc(earFarX,-50,10*farScale,0,7); ctx.fill();
-      ctx.fillStyle=pal.ear;   ctx.beginPath(); ctx.arc(earNearX,-50,20,0,7); ctx.fill();
-      ctx.fillStyle=pal.earIn; ctx.beginPath(); ctx.arc(earNearX,-50,10,0,7); ctx.fill();
-
-      // combat headband + knot + trailing tails
-      ctx.fillStyle=pal.band; roundRect(-72,-46,144,16,8); ctx.fill();
-      ctx.fillStyle=pal.dot;  ctx.beginPath(); ctx.arc(turn*10,-38,7,0,7); ctx.fill();
-      ctx.strokeStyle=pal.band; ctx.lineWidth=8; ctx.lineCap='round';
-      const tailX=-66*s;
-      ctx.beginPath(); ctx.moveTo(tailX,-40); ctx.lineTo(tailX-30*s,-24+Math.sin(t*0.2)*6); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(tailX,-36); ctx.lineTo(tailX-26*s,-6+Math.cos(t*0.2)*6); ctx.stroke();
-
-      // snout pokes out toward the facing side when turned
-      if(tt>0.15){
-        ctx.fillStyle=pal.body;
-        ctx.beginPath(); ctx.ellipse(s*(bw/2-4),4,10*tt+8,15,0,0,7); ctx.fill();
-        ctx.fillStyle='#4a3220';
-        ctx.beginPath(); ctx.ellipse(s*(bw/2+6*tt),0,6,5,0,0,7); ctx.fill();
+      // ears (the far one shrinks as it turns)
+      const hx = f*12, ex = 38*(1 - af*0.2);
+      for(const side of [-1, 1]){
+        const sc = (side === -sg && af > 0.2) ? 1 - af*0.35 : 1;
+        ell(hx + side*ex, -130, 12*sc, 16*sc, side*0.35); inked(pal.fur);
+        ctx.fillStyle = pal.earIn; ell(hx + side*ex, -128, 6*sc, 9*sc, side*0.35); ctx.fill();
       }
 
-      // eye layout: both shift toward the turn, trailing eye shrinks
-      const eyeCX=turn*16, sep=26*(1-tt*0.32);
-      const eyeLX=eyeCX-sep, eyeRX=eyeCX+sep;
-      const lScale = turn>0 ? 1-tt*0.5 : 1;           // facing right => left eye trails
-      const rScale = turn<0 ? 1-tt*0.5 : 1;
+      // head, with the headband across the top
+      ell(hx, -96, 58, 44); ctx.fillStyle = pal.fur; ctx.fill();
+      ctx.save(); ell(hx, -96, 58, 44); ctx.clip();
+      ctx.fillStyle = pal.band; ctx.fillRect(hx - 70, -132, 140, 17);
+      ctx.lineWidth = 3; ctx.beginPath();
+      ctx.moveTo(hx - 70, -132); ctx.lineTo(hx + 70, -132); ctx.moveTo(hx - 70, -115); ctx.lineTo(hx + 70, -115);
+      ctx.stroke();
+      ctx.restore();
+      ell(hx, -96, 58, 44); ctx.stroke();
+      // band tails flap out behind the turn
+      const tx = hx - sg*54, fl = Math.sin(t*0.22)*6, fl2 = Math.cos(t*0.22)*6;
+      ctx.beginPath(); ctx.moveTo(tx, -124); ctx.lineTo(tx - sg*28, -132 + fl); ctx.lineTo(tx - sg*24, -118 + fl); ctx.closePath(); inked(pal.band);
+      ctx.beginPath(); ctx.moveTo(tx, -120); ctx.lineTo(tx - sg*22, -104 + fl2); ctx.lineTo(tx - sg*12, -100 + fl2); ctx.closePath(); inked(pal.band);
+      ell(hx + f*22, -123, 6.5, 6.5); inked(pal.dot);
 
-      // brows dig in when pushing (or permanently, for a rival)
-      if(push>0.35 || extras.angry){
-        ctx.strokeStyle='#4a3220'; ctx.lineWidth=5; ctx.lineCap='round';
-        ctx.beginPath(); ctx.moveTo(eyeLX-11,-30); ctx.lineTo(eyeLX+7,-23); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(eyeRX+11,-30); ctx.lineTo(eyeRX-7,-23); ctx.stroke();
-      }
-      // eyes — squeezed shut when pushing hard or blinking, else open
-      const drawEye=(ex,sc)=>{
-        if(sc<=0.02) return;
-        if(blink || push>0.55){
-          ctx.strokeStyle='#222'; ctx.lineWidth=3.2*sc; ctx.lineCap='round';
-          ctx.beginPath(); ctx.moveTo(ex-9*sc,-17); ctx.lineTo(ex,-12); ctx.lineTo(ex+9*sc,-17); ctx.stroke(); // >< pinch
+      // muzzle and the big nose
+      const mx = hx + f*22;
+      ell(mx, -76, 31, 21); inked(pal.belly);
+      roundRect(mx + f*4 - 16, -97, 32, 19, 9); inked('#3a2820');
+      ctx.fillStyle = 'rgba(255,255,255,.35)'; ell(mx + f*4 - 6, -92, 5, 2.5); ctx.fill();
+
+      // eyes and brows do the acting
+      const ecx = hx + f*16, sep = 25*(1 - af*0.3);
+      for(const side of [-1, 1]){
+        const exx = ecx + side*sep;
+        const sc = (side === -sg && af > 0.15) ? 1 - af*0.35 : 1;
+        if(p > 0.55 || blink){
+          ctx.lineWidth = 4; ctx.beginPath();
+          if(p > 0.55){ ctx.moveTo(exx + side*8*sc, -112); ctx.lineTo(exx - side*5*sc, -106); ctx.lineTo(exx + side*8*sc, -100); }  // >< squeezed shut
+          else ctx.arc(exx, -110, 8*sc, 0.2*Math.PI, 0.8*Math.PI);
+          ctx.stroke();
         } else {
-          ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(ex,-14,12*sc,0,7); ctx.fill();
-          ctx.fillStyle='#222'; ctx.beginPath(); ctx.arc(ex+turn*3,-14+(push>0.3?3:0),6*sc,0,7); ctx.fill();
+          ctx.lineWidth = 3; ell(exx, -106, 10*sc, 12.5*sc); inked('#fff');
+          ctx.fillStyle = INK; ell(exx + f*4, -104 + (p > 0.3 ? 2 : 0), 5*sc, 6.5*sc); ctx.fill();
+          ctx.fillStyle = '#fff'; ell(exx + f*4 + 2, -107, 1.8, 1.8); ctx.fill();
         }
-      };
-      drawEye(eyeLX,lScale); drawEye(eyeRX,rScale);
+        ctx.lineWidth = 4.5; ctx.beginPath();
+        if(p > 0.35 || angry){ ctx.moveTo(exx + side*12, -126); ctx.lineTo(exx - side*7, -119); }   // dug in
+        else { ctx.moveTo(exx - 9, -122); ctx.quadraticCurveTo(exx, -127, exx + 9, -122); }         // relaxed
+        ctx.stroke();
+      }
 
-      // effort blush on the cheeks
-      if(push>0.4){
-        ctx.fillStyle=`rgba(230,90,70,${(push-0.4)*0.8})`;
-        ctx.beginPath(); ctx.arc(eyeLX-3,4,9,0,7); ctx.arc(eyeRX+3,4,9,0,7); ctx.fill();
-      }
-      // nose (only when facing forward; the snout carries it when turned)
-      if(tt<0.5){
-        ctx.globalAlpha = Math.max(0, 1-tt*2);
-        ctx.fillStyle='#4a3220'; roundRect(-10+turn*8,-4,20,14,6); ctx.fill();
-        ctx.globalAlpha = 1;
-      }
       // mouth
-      ctx.lineCap='round';
-      if(mode==='eat'){
-        // chomping: mouth opens and snaps shut
-        const open=Math.abs(Math.sin((wb.timer||0)*0.5));      // 0 (shut) .. 1 (wide)
-        ctx.fillStyle='#6e2b2b'; ctx.beginPath(); ctx.ellipse(0,13,12,3+open*11,0,0,7); ctx.fill();
-        ctx.fillStyle='#d67b7b'; ctx.beginPath(); ctx.ellipse(0,16+open*4,7,2+open*3,0,0,7); ctx.fill();  // tongue
-        ctx.fillStyle='#fff'; ctx.fillRect(-8,13-(3+open*11),4,3); ctx.fillRect(4,13-(3+open*11),4,3);   // little teeth
-      } else if(push>0.5 || extras.angry){
-        // strained, gritted grimace
-        ctx.fillStyle='#5a3a24'; ctx.beginPath(); ctx.ellipse(turn*6,17,9,6+push*4,0,0,7); ctx.fill();
-        ctx.strokeStyle='#fff'; ctx.lineWidth=2.5;
-        ctx.beginPath(); ctx.moveTo(turn*6-7,15); ctx.lineTo(turn*6+7,15); ctx.stroke();
+      if(mode === 'eat'){
+        const open = Math.abs(Math.sin((wb.timer||0)*0.5));       // chomping: 0 shut .. 1 wide
+        ctx.lineWidth = 3.5; ell(mx, -66, 12, 3 + open*10); inked('#5a2a22');
+        ctx.fillStyle = '#e07b7b'; ell(mx, -62 + open*4, 7, 2 + open*3); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.fillRect(mx - 8, -66 - (3 + open*10) + 1, 4, 3); ctx.fillRect(mx + 4, -66 - (3 + open*10) + 1, 4, 3);
+      } else if(p > 0.5 || angry){
+        ctx.lineWidth = 3.5; roundRect(mx - 11, -70, 22, 10 + p*4, 5); inked('#5a2a22');
+        ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff'; ctx.beginPath(); ctx.moveTo(mx - 7, -66); ctx.lineTo(mx + 7, -66); ctx.stroke();
+        ctx.strokeStyle = INK;
       } else {
-        ctx.strokeStyle='#4a3220'; ctx.lineWidth=4;
-        ctx.beginPath(); ctx.arc(turn*6,10,12,0.15*Math.PI,0.85*Math.PI); ctx.stroke();
+        ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(mx, -74, 9, 0.2*Math.PI, 0.8*Math.PI); ctx.stroke();
+      }
+      ctx.lineWidth = 4.5;
+
+      // cheeks flush with effort
+      if(!angry || p > 0.4){
+        ctx.fillStyle = `rgba(255,110,100,${0.22 + p*0.45})`;
+        ell(ecx - sep - 8, -84, 9, 5.5); ctx.fill(); ell(ecx + sep + 8, -84, 9, 5.5); ctx.fill();
       }
       // sweat bead when really straining
-      if(push>0.6){
-        ctx.fillStyle='#7fd7ff';
-        const sy=-32+((t*1.2)%26)/26*12;
-        ctx.beginPath(); ctx.arc(eyeRX+20,sy,5,0,7); ctx.fill();
+      if(p > 0.6){
+        const yy = -136 + ((t*1.2) % 26)/26*12;
+        ctx.lineWidth = 3; ctx.beginPath();
+        ctx.moveTo(hx + 46, yy - 8); ctx.quadraticCurveTo(hx + 53, yy + 2, hx + 46, yy + 4); ctx.quadraticCurveTo(hx + 39, yy + 2, hx + 46, yy - 8);
+        inked('#9fe3ff');
       }
       ctx.restore();
 
       // effort marks floating around the head
-      if(push>0.45){
+      if(p > 0.45){
         ctx.fillStyle='#e74c3c'; ctx.font='bold 34px "Comic Neue", "Comic Sans MS", cursive'; ctx.textAlign='left';
-        ctx.fillText('!', wb.x+84*scale, wb.y-30*scale-push*6);
+        ctx.fillText('!', wb.x+84*scale, wb.y-30*scale-p*6);
         ctx.fillText('💨', wb.x-124*scale, wb.y+30*scale);
       }
       if(extras.love){
@@ -217,24 +212,30 @@
       }
     }
 
+    // a wooden board: flat wood, a darker lower edge, a highlight, an outline
+    function plank(x, y, w, h, r, grainStep, grainStart){
+      ctx.fillStyle = '#c98b4a'; roundRect(x, y, w, h, r); ctx.fill();
+      ctx.save(); ctx.clip();
+      ctx.fillStyle = '#9c6531'; ctx.fillRect(x, y + h*0.62, w, h);
+      ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(x + 6, y + 5); ctx.lineTo(x + w - 6, y + 5); ctx.stroke();
+      ctx.strokeStyle = 'rgba(42,28,18,.35)'; ctx.lineWidth = 2;
+      for(let gx = x + grainStart; gx < x + w; gx += grainStep){
+        ctx.beginPath(); ctx.moveTo(gx, y + 3); ctx.lineTo(gx, y + h - 3); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.strokeStyle = INK; ctx.lineWidth = 3.5; ctx.lineJoin = 'round';
+      roundRect(x, y, w, h, r); ctx.stroke();
+    }
+
     // the catch platform on its pole
     function drawPlatform(plat){
       ctx.save();
       ctx.translate(plat.x, plat.y);
-      // pole
-      ctx.fillStyle='#7a5230';
-      ctx.fillRect(-8, plat.h/2, 16, H);
-      // board
-      const g = ctx.createLinearGradient(0,-plat.h/2,0,plat.h/2);
-      g.addColorStop(0,'#c98b4a'); g.addColorStop(1,'#9c6531');
-      ctx.fillStyle = g;
-      roundRect(-plat.w/2,-plat.h/2,plat.w,plat.h,10); ctx.fill();
-      ctx.strokeStyle='#6f451f'; ctx.lineWidth=3; ctx.stroke();
-      // plank grain
-      ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=2;
-      for(let gx=-plat.w/2+22; gx<plat.w/2; gx+=44){
-        ctx.beginPath(); ctx.moveTo(gx,-plat.h/2+3); ctx.lineTo(gx,plat.h/2-3); ctx.stroke();
-      }
+      ctx.strokeStyle = INK; ctx.lineWidth = 3.5;
+      ctx.fillStyle = '#8a5a30';
+      ctx.fillRect(-8, plat.h/2 - 2, 16, H); ctx.strokeRect(-8, plat.h/2 - 2, 16, H);
+      plank(-plat.w/2, -plat.h/2, plat.w, plat.h, 10, 44, 22);
       ctx.restore();
     }
 
@@ -242,21 +243,11 @@
     function drawTopPlat(hop){
       ctx.save();
       ctx.translate(topPlat.x, topPlat.y - (hop||0));
-      // support posts
-      ctx.fillStyle = '#6f451f';
-      ctx.fillRect(-topPlat.w/2+10, topPlat.h/2, 14, 40);
-      ctx.fillRect(topPlat.w/2-24, topPlat.h/2, 14, 40);
-      // plank
-      const g = ctx.createLinearGradient(0,-topPlat.h/2,0,topPlat.h/2);
-      g.addColorStop(0,'#c98b4a'); g.addColorStop(1,'#9c6531');
-      ctx.fillStyle = g;
-      roundRect(-topPlat.w/2,-topPlat.h/2,topPlat.w,topPlat.h,8); ctx.fill();
-      ctx.strokeStyle='#6f451f'; ctx.lineWidth=3; ctx.stroke();
-      // plank lines
-      ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=2;
-      for(let x=-topPlat.w/2+40; x<topPlat.w/2; x+=70){
-        ctx.beginPath(); ctx.moveTo(x,-topPlat.h/2+2); ctx.lineTo(x,topPlat.h/2-2); ctx.stroke();
+      ctx.strokeStyle = INK; ctx.lineWidth = 3.5; ctx.fillStyle = '#8a5a30';
+      for(const px of [-topPlat.w/2 + 10, topPlat.w/2 - 24]){
+        ctx.fillRect(px, topPlat.h/2 - 2, 14, 42); ctx.strokeRect(px, topPlat.h/2 - 2, 14, 42);
       }
+      plank(-topPlat.w/2, -topPlat.h/2, topPlat.w, topPlat.h, 8, 70, 40);
       ctx.restore();
     }
 
@@ -268,30 +259,28 @@
       ctx.translate(lettuce.x + lettuce.wob, lettuce.y - (hop||0));
       ctx.rotate(lettuce.roll||0);
       ctx.scale(sc, sc);
-      // ruffled leaf
-      ctx.fillStyle = '#7cc743';
+      ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+      // ruffled leaf: the outer ring outlined, the heart drawn over it
       for(let i=0;i<6;i++){
         const a = i/6*Math.PI*2;
-        ctx.beginPath(); ctx.ellipse(Math.cos(a)*7, Math.sin(a)*5, 9, 7, a, 0, 7); ctx.fill();
+        ell(Math.cos(a)*7, Math.sin(a)*5, 9, 7, a); inked('#6cbf38');
       }
-      ctx.fillStyle = '#a6e06a';
-      ctx.beginPath(); ctx.arc(0, -1, 9, 0, 7); ctx.fill();
-      ctx.strokeStyle = '#4f8a24'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(0,6); ctx.stroke();
+      ctx.fillStyle = '#6cbf38'; ell(0, 0, 11, 9); ctx.fill();
+      ell(0, -1, 8, 7); inked('#b2e875');
+      ctx.strokeStyle = '#3f7d1e'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(0,-5); ctx.lineTo(0,5); ctx.stroke();
       ctx.restore();
     }
 
     // hot drops falling onto the tower (world y, shifted by the camera)
     function drawDiarrhea(drops, camOffset){
+      ctx.strokeStyle = INK; ctx.lineWidth = 2;
       for(const d of drops){
         ctx.save();
         ctx.translate(d.x, d.y + (camOffset||0));
-        ctx.fillStyle = '#6f4e1a';
-        ctx.beginPath();
-        ctx.ellipse(0, 0, d.r*0.8, d.r*1.15, 0, 0, 7);   // teardrop-ish blob
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,.3)';
-        ctx.beginPath(); ctx.arc(-d.r*0.25, -d.r*0.3, d.r*0.22, 0, 7); ctx.fill();
+        ell(0, 0, d.r*0.8, d.r*1.15); inked('#7a5520');   // teardrop-ish blob
+        ctx.fillStyle = 'rgba(255,255,255,.4)';
+        ell(-d.r*0.25, -d.r*0.3, d.r*0.22, d.r*0.22); ctx.fill();
         ctx.restore();
       }
     }
@@ -325,9 +314,15 @@
       ctx.fillStyle = '#7cc23f';
       ctx.fillRect(-60, gy, W + 120, 900);
       ctx.fillStyle = '#5aa72f';
+      ctx.fillRect(-60, gy + 10, W + 120, 900);              // a darker band below the lip
+      // tufts standing on the edge, outlined like everything else
+      ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(-60, gy); ctx.lineTo(W + 60, gy); ctx.stroke();
+      ctx.fillStyle = '#8fd14c';
       for(let i=0;i<24;i++){
         const gx = i*32 - 30;
-        ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx+7, gy-16); ctx.lineTo(gx+14, gy); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(gx, gy+1); ctx.lineTo(gx+5, gy-13); ctx.lineTo(gx+9, gy-4);
+        ctx.lineTo(gx+13, gy-15); ctx.lineTo(gx+18, gy+1); ctx.closePath(); ctx.fill(); ctx.stroke();
       }
     }
 

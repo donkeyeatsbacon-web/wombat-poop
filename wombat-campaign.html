@@ -14,7 +14,7 @@
 <div id="hint"></div>
 <script src="shared/core.js?v=f6589e31"></script>
 <script src="shared/sound.js?v=945a409e"></script>
-<script src="shared/art.js?v=ef483769"></script>
+<script src="shared/art.js?v=b1d3bb04"></script>
 <script src="shared/physics.js?v=ce40dcd2"></script>
 <script src="shared/wombat.js?v=4b3f92f6"></script>
 <script>
@@ -486,8 +486,18 @@
   const BTN_CONTINUE = { x:W/2-190, y:H*0.79,    w:380, h:62 };
   const BTN_NEW      = { x:W/2-190, y:H*0.79+74, w:380, h:62 };
 
-  function drawTree(x,y){ ctx.fillStyle='#7a5230'; ctx.fillRect(x-7,y,14,46);
-    ctx.fillStyle='#3f8f3a'; ctx.beginPath(); ctx.arc(x,y-6,30,0,7); ctx.arc(x-22,y+6,20,0,7); ctx.arc(x+22,y+6,20,0,7); ctx.fill(); }
+  // a cartoon gum tree. The canopy's outline is its blobs stroked thick and
+  // then filled over, so only the outer edge of the union shows.
+  function drawTree(x,y){
+    ctx.save();
+    ctx.strokeStyle=WB.INK; ctx.lineWidth=3.5; ctx.lineJoin='round';
+    ctx.fillStyle='#8a5a30'; ctx.fillRect(x-7,y,14,46); ctx.strokeRect(x-7,y,14,46);
+    const blobs = [[x,y-6,30],[x-22,y+6,20],[x+22,y+6,20]];
+    ctx.lineWidth=7; for(const [bx,by,r] of blobs){ ctx.beginPath(); ctx.arc(bx,by,r,0,7); ctx.stroke(); }
+    ctx.fillStyle='#3f8f3a'; for(const [bx,by,r] of blobs){ ctx.beginPath(); ctx.arc(bx,by,r,0,7); ctx.fill(); }
+    ctx.fillStyle='#57ab4a'; ctx.beginPath(); ctx.arc(x-8,y-16,12,0,7); ctx.fill();   // sunlit side
+    ctx.restore();
+  }
 
   function drawOverworld(){
     drawSky();
@@ -497,7 +507,9 @@
       ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+7,gy-14); ctx.lineTo(gx+14,gy); ctx.fill(); }
     drawTree(60,165); drawTree(W-62,165); drawTree(58,855);
     ctx.fillStyle='#7ec8ff'; ctx.beginPath(); ctx.ellipse(W-96,855,62,28,0,0,7); ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=3; ctx.stroke();
+    ctx.strokeStyle=WB.INK; ctx.lineWidth=3.5; ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.7)'; ctx.lineWidth=3; ctx.lineCap='round';
+    ctx.beginPath(); ctx.ellipse(W-110,848,30,10,0,Math.PI*1.1,Math.PI*1.6); ctx.stroke();
 
     // trails from the burrow out to each spot
     ctx.strokeStyle='rgba(120,85,45,.5)'; ctx.lineWidth=8; ctx.setLineDash([2,14]); ctx.lineCap='round';
@@ -508,9 +520,10 @@
     ctx.setLineDash([]);
 
     // home burrow
-    ctx.fillStyle='#7a5a38'; ctx.beginPath(); ctx.ellipse(homeNode.x,homeNode.y+4,52,16,0,0,7); ctx.fill();
-    ctx.fillStyle='#6b4a2c'; ctx.beginPath(); ctx.arc(homeNode.x,homeNode.y,34,Math.PI,0); ctx.fill();
-    ctx.fillStyle='#2e1f12'; ctx.beginPath(); ctx.arc(homeNode.x,homeNode.y,18,Math.PI,0); ctx.fill();
+    ctx.strokeStyle=WB.INK; ctx.lineWidth=3.5; ctx.lineJoin='round';
+    ctx.fillStyle='#7a5a38'; ctx.beginPath(); ctx.ellipse(homeNode.x,homeNode.y+4,52,16,0,0,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#8a6440'; ctx.beginPath(); ctx.arc(homeNode.x,homeNode.y+2,34,Math.PI,0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#2e1f12'; ctx.beginPath(); ctx.arc(homeNode.x,homeNode.y+2,18,Math.PI,0); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.fillStyle='#3a2410'; ctx.font='bold 15px "Comic Neue", "Comic Sans MS", cursive'; ctx.textAlign='center';
     ctx.fillText('🏠 Home Burrow', homeNode.x, homeNode.y-44);
 
@@ -546,7 +559,7 @@
 
     ctx.fillStyle = isRival ? (n.invader ? '#c0392b' : '#e06a4a') : '#ff9ec7';
     ctx.beginPath(); ctx.arc(n.x, n.y, 30+Math.sin(t*0.15+n.homeX)*2, 0, 7); ctx.fill();
-    ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke();
+    ctx.strokeStyle=WB.INK; ctx.lineWidth=3.5; ctx.stroke();
 
     // Always animate the legs: a marching wombat strides toward its goal, a
     // resting one shuffles and paces on the spot rather than freezing.
