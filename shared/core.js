@@ -106,6 +106,12 @@
     window.addEventListener('blur', onAway);
   };
 
+  // Offline play: register the service worker (sw.js) when served over http(s).
+  // Opening the files straight from disk has no service workers; that's fine.
+  if(window.navigator && 'serviceWorker' in window.navigator && window.location && /^https?:$/.test(window.location.protocol)){
+    window.addEventListener('load', () => window.navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+
   // Move the catch platform from held arrow/A-D keys, else ease toward the
   // pointer. A key press drops the pointer so the two don't fight.
   WB.steerPlatform = function(S, input){

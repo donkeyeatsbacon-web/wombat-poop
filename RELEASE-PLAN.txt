@@ -118,16 +118,16 @@ I7. Emoji look different on every platform.
 
 POLISH (good to have for release)
 
-P1. No favicon, link-preview description or share image. Links shared in
+P1. [DONE] No favicon, link-preview description or share image. Links shared in
     chats will look bare. Add <meta name="description">, Open Graph tags and
     an icon.
-P2. No "add to home screen" support (web app manifest + icons). With an
+P2. [DONE] No "add to home screen" support (web app manifest + icons). With an
     offline service worker it would play like an app on phones.
 P3. [DONE in sprint 1] Endless mode hides the mouse cursor (cursor: none) on
     the menus and game-over screen too, not just during play.
 P4. [DONE] The campaign has only 4 mate names and 4 rival names, so long seasons
     repeat them a lot.
-P5. The endless high score is a single personal best. A short local top-5
+P5. [DONE] The endless high score is a single personal best. A short local top-5
     gives players a reason to keep going.
 P6. [DONE] Nothing on screen shows how many plops the current level needs, or what
     a new player should do on their first poop. A one-time tutorial prompt
@@ -282,11 +282,15 @@ Phase D - Final check (release candidate, 1-2 days)
            Old saves are repaired when loaded.
     -> Then Phase C balance pass
 
-  Sprint 4 - Release polish
-   12. Favicon, description, share image (P1)
-   13. Show the cursor outside play (P3)
-   14. Local top-5 scores (P5)
-   15. Optional: installable web app + offline play (P2)
+  Sprint 4 - Release polish  [DONE 2026-10-13]
+   12. [x] Favicon, home-screen icons, description and link-preview image,
+           all drawn from the game's art by tools/make-icons.js (P1)
+   13. [x] Cursor shows outside play (done in sprint 1) (P3)
+   14. [x] Local top-5 scores with names, highlighted on game over (P5)
+   15. [x] Installable app (manifest) and offline play (service worker);
+           bump-version.js keeps the offline file list current (P2)
+       [x] Soft panels behind the corner HUD in both modes, so the wombat
+           crawling under them no longer clashes with the readouts.
     -> Then Phase D
 
 

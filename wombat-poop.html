@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>💩 Combat Wombat: Poop Stacker 💩</title>
+<meta name="description" content="Endless mode: catch the plops, stack them sky-high and climb level after level before the tower topples.">
+<meta name="theme-color" content="#6ab04c">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Combat Wombat">
+<meta property="og:title" content="Combat Wombat: Poop Stacker">
+<meta property="og:description" content="Endless mode: catch the plops, stack them sky-high and climb level after level before the tower topples.">
+<meta property="og:url" content="https://donkeyeatsbacon-web.github.io/wombat-poop/wombat-poop.html">
+<meta property="og:image" content="https://donkeyeatsbacon-web.github.io/wombat-poop/icons/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A cartoon wombat in a green headband straining on a plank, next to a tower of stacked poop cubes.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="shared/base.css?v=30c6dc38">
 <style>
   canvas { image-rendering: optimizeQuality; }
@@ -51,7 +66,7 @@
     </div>
   </div>
 </div>
-<script src="shared/core.js?v=f6589e31"></script>
+<script src="shared/core.js?v=73f95151"></script>
 <script src="shared/sound.js?v=945a409e"></script>
 <script src="shared/art.js?v=c54f25b5"></script>
 <script src="shared/physics.js?v=ce40dcd2"></script>
@@ -69,21 +84,34 @@
   // ---------- Game state ----------
   const STATE = { MENU: 0, PLAY: 1, TOPPLE: 2, OVER: 3 };
   let state = STATE.MENU;
-  let score = 0, best = 0, maxMiss = 3;
+  let score = 0, maxMiss = 3;
 
-  // ---------- Personal high score (persisted across sessions) ----------
-  const HS_KEY = 'wombatPoopHigh';
-  let highScore = 0, highName = '';
+  // ---------- Top scores (kept on this device) ----------
+  // The five best runs, best first: { name, score, level, date }. The old
+  // single best (wombatPoopHigh) is folded in the first time, and kept up to
+  // date afterwards because the front page reads it.
+  const SCORES_KEY = 'wombatPoopScores', HS_KEY = 'wombatPoopHigh', NAME_KEY = 'wombatPoopName', TOP_N = 5;
+  let scores = [], lastName = '', lastRank = -1;   // lastRank: where the run just entered landed, to highlight it
   let entering = false;          // true while the name-entry overlay is open
-  (function loadHigh(){
+  (function loadScores(){
     try {
-      const d = JSON.parse(localStorage.getItem(HS_KEY) || 'null');
-      if(d){ highScore = d.score|0; highName = d.name || ''; best = highScore; }
+      const d = JSON.parse(localStorage.getItem(SCORES_KEY) || 'null');
+      if(Array.isArray(d)) scores = d.filter(e => e && Number.isFinite(e.score) && typeof e.name === 'string').slice(0, TOP_N);
+      if(!scores.length){
+        const h = JSON.parse(localStorage.getItem(HS_KEY) || 'null');
+        if(h && h.score > 0) scores = [{ name: String(h.name || 'Wombat'), score: h.score|0, level: 0, date: '' }];
+      }
+      lastName = localStorage.getItem(NAME_KEY) || (scores[0] ? scores[0].name : '');
     } catch(e){}
   })();
-  function saveHigh(){
-    try { localStorage.setItem(HS_KEY, JSON.stringify({ name: highName, score: highScore })); }
-    catch(e){}
+  const bestScore = () => scores.length ? scores[0].score : 0;
+  const qualifies = s => s > 0 && (scores.length < TOP_N || s > scores[scores.length - 1].score);
+  function saveScores(){
+    try {
+      localStorage.setItem(SCORES_KEY, JSON.stringify(scores));
+      if(scores[0]) localStorage.setItem(HS_KEY, JSON.stringify({ name: scores[0].name, score: scores[0].score }));
+      localStorage.setItem(NAME_KEY, lastName);
+    } catch(e){}
   }
   let toppleTimer = 0;
   let danger = 0;   // 0 = rock solid, 1 = about to topple (wobble meter)
@@ -192,26 +220,32 @@
   const saveOverlay = document.getElementById('saveOverlay');
   const nameEntry   = document.getElementById('nameEntry');
   const saveSub     = document.getElementById('saveSub');
+  const saveTitle   = document.getElementById('saveTitle');
 
   function endGame(){
-    if(state !== STATE.OVER) WB.sfx(score > highScore ? 'win' : 'sad');
+    if(state !== STATE.OVER) WB.sfx(score > bestScore() ? 'win' : 'sad');
     state = STATE.OVER;
-    best = Math.max(best, score);
-    if(score > highScore){
-      // new personal best — let the player put their name to it
+    lastRank = -1;
+    if(!entering && qualifies(score)){
+      // a top-5 run: let the player put their name to it
       entering = true;
-      saveSub.textContent = 'Score ' + score + (highScore ? ' · beat ' + highScore : '');
-      nameEntry.value = highName;
+      const newBest = score > bestScore();
+      saveTitle.textContent = newBest ? '🏆 New personal best!' : '🏅 A top-5 score!';
+      saveSub.textContent = 'Score ' + score + (newBest && bestScore() ? ' · beat ' + bestScore() : '');
+      nameEntry.value = lastName;
       saveOverlay.style.display = 'flex';
       setTimeout(() => { nameEntry.focus(); nameEntry.select(); }, 0);
     }
   }
   function hideSaveOverlay(){ entering = false; saveOverlay.style.display = 'none'; }
   function commitHigh(){
-    highName = (nameEntry.value.trim() || 'Wombat').slice(0, 12);
-    highScore = score;
-    best = Math.max(best, highScore);
-    saveHigh();
+    lastName = (nameEntry.value.trim() || 'Wombat').slice(0, 12);
+    const entry = { name: lastName, score, level, date: new Date().toISOString().slice(0, 10) };
+    scores.push(entry);
+    scores.sort((a, b) => b.score - a.score);       // stable: an equal older score stays ahead
+    scores = scores.slice(0, TOP_N);
+    lastRank = scores.indexOf(entry);
+    saveScores();
     hideSaveOverlay();
   }
   document.getElementById('saveBtn').addEventListener('click', commitHigh);
@@ -346,6 +380,10 @@
 
   function drawHUD(){
     ctx.save();
+    // soft panels behind the corner readouts, so the wombat can crawl under them
+    ctx.fillStyle='rgba(255,255,255,.72)'; ctx.strokeStyle='rgba(42,28,18,.3)'; ctx.lineWidth=2;
+    roundRect(10, 10, 212, 84, 16); ctx.fill(); ctx.stroke();
+    roundRect(W-150, 10, 140, 84, 16); ctx.fill(); ctx.stroke();
     ctx.textAlign='left';
     ctx.fillStyle='#2d5016';
     ctx.font='bold 40px "Comic Neue", "Comic Sans MS", cursive';
@@ -423,6 +461,28 @@
     ctx.restore();
   }
 
+  // one line of overlay text, centred
+  function line(text, font, color, stroke, y){
+    ctx.save(); ctx.textAlign='center'; ctx.font=font; ctx.fillStyle=color;
+    ctx.lineWidth=6; ctx.strokeStyle='rgba(0,0,0,.5)';
+    if(stroke) ctx.strokeText(text, W/2, y);
+    ctx.fillText(text, W/2, y); ctx.restore();
+  }
+  // the top-5 table on the game-over screen; the run just entered is highlighted
+  function drawTopScores(y){
+    line('Top scores', 'bold 24px "Comic Neue", "Comic Sans MS", cursive', '#ffe14d', true, y);
+    ctx.save(); ctx.font='22px "Comic Neue", "Comic Sans MS", cursive';
+    if(!scores.length) line('None yet. Stack some poop!', '20px "Comic Neue", "Comic Sans MS", cursive', '#fff', false, y + 36);
+    scores.forEach((e, i) => {
+      const ry = y + 36 + i*30, mine = i === lastRank;
+      if(mine){ ctx.fillStyle='rgba(123,237,159,.25)'; roundRect(W/2-170, ry-22, 340, 30, 10); ctx.fill(); }
+      ctx.fillStyle = mine ? '#7bed9f' : '#fff';
+      ctx.textAlign='left';  ctx.fillText((i+1) + '.  ' + e.name, W/2-155, ry);
+      ctx.textAlign='right'; ctx.fillText(String(e.score), W/2+155, ry);
+    });
+    ctx.restore();
+  }
+
   function centerText(lines){
     ctx.save();
     ctx.fillStyle='rgba(0,0,0,.35)';
@@ -489,11 +549,11 @@
     if(state === STATE.OVER){
       centerText([
         {text: S.misses>=maxMiss ? '🧻 Out of toilet paper!' : '🗼 TIMBERRR!', font:'bold 46px "Comic Neue", "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:70},
-        {text:'Score: ' + score, font:'bold 40px "Comic Neue", "Comic Sans MS", cursive', color:'#ffe14d', stroke:true, gap:46},
-        {text:'Best: ' + Math.max(best,highScore) + (highName ? ' (' + highName + ')' : ''), font:'26px "Comic Neue", "Comic Sans MS", cursive', gap:36},
-        {text:'Reached level ' + level + ' · ' + S.stack.length + ' plops', font:'22px "Comic Neue", "Comic Sans MS", cursive', gap:80},
-        {text:'▶ Click / Space to poop again', font:'bold 26px "Comic Neue", "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
+        {text:'Score: ' + score, font:'bold 40px "Comic Neue", "Comic Sans MS", cursive', color:'#ffe14d', stroke:true},
       ]);
+      drawTopScores(H*0.32 + 118);
+      line('Reached level ' + level + ' · ' + S.stack.length + ' plops', '22px "Comic Neue", "Comic Sans MS", cursive', '#fff', false, H*0.32 + 325);
+      line('▶ Click / Space to poop again', 'bold 26px "Comic Neue", "Comic Sans MS", cursive', '#7bed9f', true, H*0.32 + 385);
       drawButton(BTN_MENU, '◂ Menu', '#fff8e7', '#7a3d12', 22);
     }
     if(paused && state===STATE.PLAY){
