@@ -324,6 +324,22 @@ suggestions in gum nuts.
   any of them.
 
 
+DECISIONS MADE SO FAR (2026-10-13)
+----------------------------------
+
+  Rivals - everything in section 1 is in:
+    - Each rival gets one personality, drawn from all of them: Roller,
+      Lobber, Rotter, Bully (1A), Stomper, Thief, Plopper (1B).
+    - Turf war (1C) applies on top: every invader on your plank takes up
+      some of its room, so more invaders pen your wombat in further.
+    - All four ways to get rid of them: beat them on the map (E1), bank a
+      stack to scare one off for the level (E2), catch their thrown lettuce
+      (E3), and a mate can shoo them (E4, the Bouncer perk).
+    - Rival poop (the Plopper's "bad cubes") is in.
+
+  Still open: everything from question 4 on (below).
+
+
 7. DECISIONS FOR YOU
 --------------------
 
