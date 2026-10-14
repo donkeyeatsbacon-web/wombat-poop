@@ -51,6 +51,19 @@ there and play a stacking level against it.
 Progress saves automatically after each day, so you can close the page and
 **Continue** later.
 
+### Gum Nuts and the Workshop
+
+Both modes earn **Gum Nuts**: 1 for every poop you stack (5 more for a rare
+golden one), 5 for each finished stack or level climbed (10 more if it never
+got wobbly), 15 for driving off a rival and 10 for wooing a mate. Spend them in
+the **Workshop** (from the front page) on upgrades for your catch platform:
+four trees (Width, Grip, Stability, Protection), where the second tier makes
+you pick one of two branches. You can switch branch later for a fee.
+
+Upgrades always apply in the campaign. Endless can be played **Upgraded** or
+**Classic** (stock), each with its own top 5; the switch appears on endless
+mode's title screen once you own an upgrade.
+
 ## Controls
 
 | | Desktop | Phone / tablet |
@@ -91,6 +104,8 @@ There's no build step and there are no dependencies, just HTML and plain JavaScr
 | `shared/core.js` | The game clock, screen fitting for sharp high-DPI rendering and notches, constants, input helpers |
 | `shared/physics.js` | Falling poops, stacking, the wobble, melting and collapse, particles |
 | `shared/wombat.js` | The wombat's crawl, poop and lettuce-eating routine |
+| `shared/progress.js` | Gum Nuts, the upgrade catalogue and prices, and what each upgrade changes |
+| `workshop.html` | The Workshop: buying and switching upgrades |
 | `shared/sound.js` | Sound effects, synthesised in code (no audio files), and the mute setting |
 | `shared/art.js` | Drawing of the wombats, poops, platforms, lettuce, ground and goal line |
 | `shared/base.css` | Page layout shared by both modes, and the bundled font |
@@ -117,8 +132,11 @@ page's script.
 
 Everything is kept in the browser's `localStorage`:
 
-- `wombatPoopScores`: the endless-mode top 5 (`wombatPoopHigh` keeps just the
-  best, for the front page; `wombatPoopName` remembers the last name typed)
+- `wombatPoopScores` / `wombatPoopScoresUp`: the endless-mode top 5, Classic
+  and Upgraded (`wombatPoopHigh` keeps just the Classic best, for older
+  front pages; `wombatPoopName` remembers the last name typed;
+  `wombatPoopMode` remembers Classic or Upgraded)
+- `wombatProgress`: your Gum Nuts and the upgrades you own
 - `wombatCampaignSave`: the campaign in progress
 - `wombatMuted`: whether sound is off
 - `wombatTutorialDone`, `wombatCampaignTutorialDone`: the first-play tips have

@@ -66,10 +66,11 @@
     </div>
   </div>
 </div>
-<script src="shared/core.js?v=73f95151"></script>
+<script src="shared/core.js?v=6925f7c9"></script>
 <script src="shared/sound.js?v=945a409e"></script>
-<script src="shared/art.js?v=c54f25b5"></script>
-<script src="shared/physics.js?v=ce40dcd2"></script>
+<script src="shared/progress.js?v=f34ccd3e"></script>
+<script src="shared/art.js?v=3c47bc68"></script>
+<script src="shared/physics.js?v=427372bc"></script>
 <script src="shared/wombat.js?v=4b3f92f6"></script>
 <script>
 (() => {
@@ -78,7 +79,7 @@
   const ctx = cv.getContext('2d');
   const disp = WB.fitDisplay(cv, document.getElementById('wrap'));
   let t = 0;
-  const { roundRect, drawButton, drawRoundButton, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
+  const { roundRect, drawButton, drawRoundButton, drawGumNut, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
           drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine } = WB.createArt(ctx, () => t);
 
   // ---------- Game state ----------
@@ -86,33 +87,61 @@
   let state = STATE.MENU;
   let score = 0, maxMiss = 3;
 
+  // ---------- Classic or Upgraded ----------
+  // Once you own platform upgrades, endless can be played either way, each
+  // with its own top 5. Classic is the stock game.
+  const MODE_KEY = 'wombatPoopMode';
+  let upgraded = false;
+  try { upgraded = WB.progress.anyOwned() && localStorage.getItem(MODE_KEY) !== 'classic'; } catch(e){}
+  let M = WB.progress.mods(upgraded);    // what this run's upgrades change
+
   // ---------- Top scores (kept on this device) ----------
-  // The five best runs, best first: { name, score, level, date }. The old
-  // single best (wombatPoopHigh) is folded in the first time, and kept up to
-  // date afterwards because the front page reads it.
-  const SCORES_KEY = 'wombatPoopScores', HS_KEY = 'wombatPoopHigh', NAME_KEY = 'wombatPoopName', TOP_N = 5;
+  // The five best runs per mode, best first: { name, score, level, date }.
+  // The old single best (wombatPoopHigh) is folded into Classic the first
+  // time, and kept up to date afterwards because the front page reads it.
+  const HS_KEY = 'wombatPoopHigh', NAME_KEY = 'wombatPoopName', TOP_N = 5;
+  const scoresKey = () => upgraded ? 'wombatPoopScoresUp' : 'wombatPoopScores';
   let scores = [], lastName = '', lastRank = -1;   // lastRank: where the run just entered landed, to highlight it
   let entering = false;          // true while the name-entry overlay is open
-  (function loadScores(){
+  function loadScores(){
+    scores = [];
     try {
-      const d = JSON.parse(localStorage.getItem(SCORES_KEY) || 'null');
+      const d = JSON.parse(localStorage.getItem(scoresKey()) || 'null');
       if(Array.isArray(d)) scores = d.filter(e => e && Number.isFinite(e.score) && typeof e.name === 'string').slice(0, TOP_N);
-      if(!scores.length){
+      if(!scores.length && !upgraded){
         const h = JSON.parse(localStorage.getItem(HS_KEY) || 'null');
         if(h && h.score > 0) scores = [{ name: String(h.name || 'Wombat'), score: h.score|0, level: 0, date: '' }];
       }
-      lastName = localStorage.getItem(NAME_KEY) || (scores[0] ? scores[0].name : '');
+      lastName = localStorage.getItem(NAME_KEY) || lastName || (scores[0] ? scores[0].name : '');
     } catch(e){}
-  })();
+  }
+  loadScores();
   const bestScore = () => scores.length ? scores[0].score : 0;
   const qualifies = s => s > 0 && (scores.length < TOP_N || s > scores[scores.length - 1].score);
   function saveScores(){
     try {
-      localStorage.setItem(SCORES_KEY, JSON.stringify(scores));
-      if(scores[0]) localStorage.setItem(HS_KEY, JSON.stringify({ name: scores[0].name, score: scores[0].score }));
+      localStorage.setItem(scoresKey(), JSON.stringify(scores));
+      if(scores[0] && !upgraded) localStorage.setItem(HS_KEY, JSON.stringify({ name: scores[0].name, score: scores[0].score }));
       localStorage.setItem(NAME_KEY, lastName);
     } catch(e){}
   }
+  function toggleMode(){
+    upgraded = !upgraded;
+    try { localStorage.setItem(MODE_KEY, upgraded ? 'upgraded' : 'classic'); } catch(e){}
+    loadScores(); lastRank = -1;
+    WB.sfx('click');
+  }
+
+  // ---------- Gum Nuts this run ----------
+  // Earned as you play, banked into the wallet when the run ends (or you
+  // leave). runNuts is shown; unbanked is what hasn't reached the wallet yet.
+  let runNuts = 0, unbanked = 0;
+  const earn = n => { runNuts += n; unbanked += n; };
+  function bankNuts(){ if(unbanked > 0){ WB.progress.earn(unbanked); unbanked = 0; } }
+  // per-level bookkeeping for the bonuses and once-per-level upgrades
+  let levelMaxDanger = 0, anchorReady = true, slowmoReady = true, slowmoLeft = 0, extendT = 0;
+  let notice = null;                     // a short message mid-screen: { text, life }
+  const say = text => { notice = { text, life: 90 }; };
   let toppleTimer = 0;
   let danger = 0;   // 0 = rock solid, 1 = about to topple (wobble meter)
   // camera / climbing mechanic
@@ -144,7 +173,12 @@
   }
 
   const hooks = {
-    onSettle: p => { score += Math.max(1, Math.round(p.w/12)); tutorialDone(); },
+    onSettle: p => {
+      score += Math.max(1, Math.round(p.w/12)); tutorialDone();
+      earn(1);
+      if(WB.isGolden(p.hue)){ earn(5); say('✨ Golden poop! +5'); }
+    },
+    onBoardDrop: () => { if(M.gutter) earn(1); },
     onMiss: () => { if(S.misses >= maxMiss) endGame(); },
     // poops come quicker as the score climbs
     nextPoopAt: t => t + clamp(150 - score*0.6, 70, 150) + rand(-25, 55),
@@ -172,13 +206,15 @@
   const BTN_SOUND  = { x: W/2-150, y: H*0.40+160, w: 300, h: 62 };
   const BTN_MENU   = { x: 18, y: 18, w: 136, h: 48 };              // title + game-over screens
   const SOUND_BTN  = PAUSE_BTN;                                     // title + game-over screens
+  const BTN_MODE   = { x: W/2-115, y: 18, w: 230, h: 48 };          // title + game-over, once you own upgrades
+  const leave = () => { bankNuts(); WB.toMenu(); };
 
   function onDown(x, y){
     if(entering) return;
     if(state === STATE.PLAY){
       if(paused){
         if(WB.hitBtn(BTN_RESUME, x, y)){ paused = false; WB.sfx('click'); }
-        else if(WB.hitBtn(BTN_QUIT, x, y)) WB.toMenu();
+        else if(WB.hitBtn(BTN_QUIT, x, y)) leave();
         else if(WB.hitBtn(BTN_SOUND, x, y)) WB.sound.toggle();
         return;
       }
@@ -189,7 +225,8 @@
     input.pointerX = x;
     const onMenuScreen = state === STATE.MENU || state === STATE.OVER;
     if(onMenuScreen && WB.hitRound(SOUND_BTN, x, y)) WB.sound.toggle();
-    else if(onMenuScreen && WB.hitBtn(BTN_MENU, x, y)) WB.toMenu();
+    else if(onMenuScreen && WB.hitBtn(BTN_MENU, x, y)) leave();
+    else if(onMenuScreen && WB.progress.anyOwned() && WB.hitBtn(BTN_MODE, x, y)) toggleMode();
     else start();
   }
   const canvasX = clientX => WB.canvasPt(cv, clientX, 0).x;
@@ -205,11 +242,14 @@
     ? 'Drag to move &nbsp;·&nbsp; ⏸ to pause &nbsp;·&nbsp; catch the plops, don\'t let the tower topple!'
     : '← → / A D / mouse to move &nbsp;·&nbsp; P to pause &nbsp;·&nbsp; M to mute &nbsp;·&nbsp; catch the plops, don\'t let the tower topple!';
   // switching away mid-game pauses it, so nothing falls while nobody's looking
-  WB.onAway(() => { if(state === STATE.PLAY) paused = true; });
+  WB.onAway(() => { if(state === STATE.PLAY) paused = true; bankNuts(); });
 
   function reset(){
     score = 0; toppleTimer = 0;
-    S = WB.newRun(t, { platW: 150, tune: TUNE, hooks });
+    M = WB.progress.mods(upgraded);
+    S = WB.newRun(t, { platW: 150 + M.widthAdd, tune: WB.progress.tune(TUNE, M), hooks, steerMul: M.steerMul, easeMul: M.easeMul });
+    runNuts = 0; unbanked = 0;
+    levelMaxDanger = 0; anchorReady = true; slowmoReady = true; slowmoLeft = 0; extendT = 0; notice = null;
     paused = false; danger = 0;
     camTarget = 0; level = 1; raising = false;
     jumpTimer = 0; raiseDelay = 0;
@@ -223,6 +263,7 @@
   const saveTitle   = document.getElementById('saveTitle');
 
   function endGame(){
+    bankNuts();
     if(state !== STATE.OVER) WB.sfx(score > bestScore() ? 'win' : 'sad');
     state = STATE.OVER;
     lastRank = -1;
@@ -309,8 +350,11 @@
 
   // ---------- Update ----------
   function update(){
+    // Slow-Mo upgrade: the game runs at half speed for a moment
+    if(slowmoLeft > 0){ slowmoLeft--; if(slowmoLeft % 2) return; }
     t++;
     if(S.shake > 0) S.shake *= 0.85;
+    if(notice && --notice.life <= 0) notice = null;
     if(S.comboFlash>0) S.comboFlash--;
 
     if(state === STATE.PLAY && !paused){
@@ -322,10 +366,17 @@
       const effOff = WB.updateStack(S, t);
       if(effOff === null) danger += (0 - danger) * 0.2;
       else {
-        const edge = S.plat.w/2 + 22;                    // topple once it clears the platform edge
+        const edge = S.plat.w/2 + 22 + M.marginAdd;      // topple once it clears the platform edge
         danger += (clamp(Math.abs(effOff)/edge, 0, 1) - danger) * 0.2;
         if(danger > 0.8) WB.sfx('creak');                // the tower groans before it goes
-        if(Math.abs(effOff) > edge) beginTopple(effOff > 0 ? 1 : -1);
+        levelMaxDanger = Math.max(levelMaxDanger, danger);
+        if(M.slowmo && slowmoReady && danger > 0.85){ slowmoReady = false; slowmoLeft = 150; say('⏳ Slow-mo!'); }
+        if(Math.abs(effOff) > edge){
+          if(M.anchor && anchorReady){                     // the Anchor upgrade catches it once per level
+            anchorReady = false; S.pileSway = 0; S.pileSwayV = 0; S.shake = 10;
+            WB.sfx('levelup'); say('⚓ Anchor held!');
+          } else beginTopple(effOff > 0 ? 1 : -1);
+        }
       }
 
       // climbing: when the stack top reaches the red goal line, raise the
@@ -335,11 +386,16 @@
         if(stackTopScreen <= goalScreenY){
           raising = true; level++;
           WB.sfx('levelup');
+          earn(5);
+          if(levelMaxDanger < 0.8){ earn(10); say('✨ Clean climb! +10'); }   // no wobble warnings this level
+          levelMaxDanger = 0; anchorReady = true; slowmoReady = true;
+          if(M.extendo){ WB.setPlatBonus(S, 20); extendT = 300; }
           S.raiseBaseY = WB.stackTopWorldY(S);           // reset the wobble reference for the new level
           camTarget = (H - RAISE_BAND) - WB.stackTopWorldY(S);
           jumpTimer = 32; raiseDelay = 16;               // wombat leaps up, THEN the camera follows
         }
       }
+      if(extendT > 0 && --extendT === 0) WB.setPlatBonus(S, 0);
       if(jumpTimer > 0) jumpTimer--;
       if(raiseDelay > 0) raiseDelay--;
       else S.camOffset += (camTarget - S.camOffset) * 0.04;  // camera pans up to meet the wombat
@@ -398,6 +454,9 @@
     ctx.font='20px "Comic Neue", "Comic Sans MS", cursive';
     ctx.fillStyle='#3a6b1f';
     ctx.fillText('height: ' + S.stack.length, 22, 82);
+    drawGumNut(146, 76, 20);
+    ctx.font='bold 20px "Comic Neue", "Comic Sans MS", cursive'; ctx.fillStyle='#7a4a1c';
+    ctx.fillText(String(runNuts), 160, 83);
     // level (climbs each time you reach the goal line)
     ctx.textAlign='right';
     ctx.font='bold 22px "Comic Neue", "Comic Sans MS", cursive';
@@ -470,7 +529,8 @@
   }
   // the top-5 table on the game-over screen; the run just entered is highlighted
   function drawTopScores(y){
-    line('Top scores', 'bold 24px "Comic Neue", "Comic Sans MS", cursive', '#ffe14d', true, y);
+    line(WB.progress.anyOwned() ? (upgraded ? 'Top scores · Upgraded' : 'Top scores · Classic') : 'Top scores',
+         'bold 24px "Comic Neue", "Comic Sans MS", cursive', '#ffe14d', true, y);
     ctx.save(); ctx.font='22px "Comic Neue", "Comic Sans MS", cursive';
     if(!scores.length) line('None yet. Stack some poop!', '20px "Comic Neue", "Comic Sans MS", cursive', '#fff', false, y + 36);
     scores.forEach((e, i) => {
@@ -534,6 +594,12 @@
     ctx.restore();
 
     if(state === STATE.PLAY && !paused) drawRoundButton(PAUSE_BTN, 'pause');
+    if(slowmoLeft > 0){ ctx.fillStyle='rgba(90,140,255,.12)'; ctx.fillRect(0,0,W,H); }
+    if(notice && state === STATE.PLAY){
+      ctx.globalAlpha = Math.min(1, notice.life/30);
+      line(notice.text, 'bold 30px "Comic Neue", "Comic Sans MS", cursive', '#fff', true, H*0.46);
+      ctx.globalAlpha = 1;
+    }
     if(state === STATE.MENU || state === STATE.OVER) drawRoundButton(SOUND_BTN, WB.sound.muted() ? 'muted' : 'sound');
 
     if(state === STATE.MENU){
@@ -545,16 +611,24 @@
         {text:'▶ Click / Tap / Space to start', font:'bold 28px "Comic Neue", "Comic Sans MS", cursive', color:'#7bed9f', stroke:true},
       ]);
       drawButton(BTN_MENU, '◂ Menu', '#fff8e7', '#7a3d12', 22);
+      if(WB.progress.anyOwned()) drawButton(BTN_MODE, upgraded ? '🔧 Upgraded' : '🏁 Classic', '#fff8e7', '#7a3d12', 22);
     }
     if(state === STATE.OVER){
       centerText([
         {text: S.misses>=maxMiss ? '🧻 Out of toilet paper!' : '🗼 TIMBERRR!', font:'bold 46px "Comic Neue", "Comic Sans MS", cursive', color:'#fff', stroke:true, gap:70},
         {text:'Score: ' + score, font:'bold 40px "Comic Neue", "Comic Sans MS", cursive', color:'#ffe14d', stroke:true},
       ]);
-      drawTopScores(H*0.32 + 118);
-      line('Reached level ' + level + ' · ' + S.stack.length + ' plops', '22px "Comic Neue", "Comic Sans MS", cursive', '#fff', false, H*0.32 + 325);
-      line('▶ Click / Space to poop again', 'bold 26px "Comic Neue", "Comic Sans MS", cursive', '#7bed9f', true, H*0.32 + 385);
+      if(runNuts > 0){
+        const txt = '+' + runNuts + ' Gum Nuts';
+        line(txt, 'bold 24px "Comic Neue", "Comic Sans MS", cursive', '#ffd98a', true, H*0.32 + 108);
+        ctx.font = 'bold 24px "Comic Neue", "Comic Sans MS", cursive';
+        drawGumNut(W/2 - ctx.measureText(txt).width/2 - 18, H*0.32 + 100, 24);
+      }
+      drawTopScores(H*0.32 + 150);
+      line('Reached level ' + level + ' · ' + S.stack.length + ' plops', '22px "Comic Neue", "Comic Sans MS", cursive', '#fff', false, H*0.32 + 357);
+      line('▶ Click / Space to poop again', 'bold 26px "Comic Neue", "Comic Sans MS", cursive', '#7bed9f', true, H*0.32 + 412);
       drawButton(BTN_MENU, '◂ Menu', '#fff8e7', '#7a3d12', 22);
+      if(WB.progress.anyOwned()) drawButton(BTN_MODE, upgraded ? '🔧 Upgraded' : '🏁 Classic', '#fff8e7', '#7a3d12', 22);
     }
     if(paused && state===STATE.PLAY){
       centerText([{text:'⏸ Paused', font:'bold 48px "Comic Neue", "Comic Sans MS", cursive', color:'#fff', stroke:true}]);

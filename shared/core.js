@@ -25,6 +25,10 @@
   // sound effects: a no-op unless shared/sound.js is loaded
   WB.sfx = () => {};
 
+  // About 1 poop in 32 comes out golden (worth Gum Nuts). It's decided by the
+  // poop's random colour shade, so no extra random number is drawn.
+  WB.isGolden = hue => hue > 7.5;
+
   WB.rand  = (a,b) => a + Math.random()*(b-a);
   WB.clamp = (v,a,b) => v<a?a:v>b?b:v;
 
@@ -123,7 +127,7 @@
       plat.x += dir * plat.speed;
       input.pointerX = null;
     } else if(input.pointerX !== null){
-      plat.x += (input.pointerX - plat.x) * 0.35;
+      plat.x += (input.pointerX - plat.x) * (plat.ease || 0.35);
     }
     plat.x = WB.clamp(plat.x, plat.w/2, WB.W - plat.w/2);
   };

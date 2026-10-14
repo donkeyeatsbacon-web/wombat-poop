@@ -12,11 +12,13 @@
 (() => {
   const { W, H, GRAV, SMALL_CUBE, topPlat, rand, clamp } = WB;
 
-  WB.newRun = function(t, { platW, tune, hooks }){
+  WB.newRun = function(t, { platW, tune, hooks, steerMul, easeMul }){
     const plat = {
-      w: platW, h: 26, x: W/2, y: H - 70, speed: 9,
-      baseW: platW, shrink: 0, shrinkTimer: 0   // diarrhea can shrink the platform for a while
+      w: platW, h: 26, x: W/2, y: H - 70, speed: 9 * (steerMul || 1),
+      baseW: platW, shrink: 0, shrinkTimer: 0,  // diarrhea can shrink the platform for a while
+      bonusW: 0                                 // a temporary extension (the Extendo upgrade)
     };
+    if(easeMul && easeMul !== 1) plat.ease = 0.35 * easeMul;
     return {
       plat,
       wombat: {
@@ -119,7 +121,7 @@
       const dx = p.x - ox, dy = p.y - oy;
       const px = (p.w/2 + ow/2) - Math.abs(dx);
       const py = (p.h/2 + oh/2) - Math.abs(dy);
-      if(px <= 0 || py <= 0) return;
+      if(px <= 0 || py <= 0) return false;
       p._touched = true;
       // only "land on top" when the poop's centre is actually over this object;
       // a poop merely grazing a top corner gets shoved off so it keeps falling
@@ -129,8 +131,9 @@
           p.y -= py;
           if(p.vy > 0) p.vy *= -0.12;               // tiny bounce
           if(Math.abs(p.vy) < 0.5) p.vy = 0;
-          p.vx *= 0.6;                              // friction
+          p.vx *= (S.tune.landFriction || 0.6);     // friction
           resting = true;
+          return true;
         } else { p.y += py; if(p.vy < 0) p.vy = 0; }
       } else {                                      // side / corner contact — shove off, don't perch
         if(dx < 0){ p.x -= px; pushedL = true; gapR = Math.min(gapR, ox - ow/2); }
@@ -139,7 +142,13 @@
         wedgeTop = Math.min(wedgeTop, oy - oh/2);
       }
     };
-    hit(plat.x, plat.y, plat.w, plat.h);
+    if(hit(plat.x, plat.y, plat.w, plat.h) && !p._boarded){
+      // first touch of the board itself: the Springs / Catapult upgrades
+      p._boarded = true;
+      const toMid = plat.x - p.x;
+      if(S.tune.catapult && Math.abs(toMid) > plat.w*0.25){ p.vy = -3.5; p.vx = Math.sign(toMid)*2.5; resting = false; }
+      else if(S.tune.springs) p.vx = toMid*0.08;
+    }
     for(const c of S.stack){
       if(Math.abs(c.y - p.y) < 220 && Math.abs((plat.x + c.off) - p.x) < 200){
         hit(plat.x + c.off, c.y, c.w, c.h);
@@ -231,7 +240,10 @@
         if(sup){
           const leftOver  = sup.supL - (off - p.w/2);
           const rightOver = (off + p.w/2) - sup.supR;
-          if(leftOver <= p.w*0.33 && rightOver <= p.w*0.33){   // sitting mostly ON its support
+          // how far it may hang over and still stay (the Sticky Pad / Super Glue upgrades)
+          const onBoard = Math.abs(platTop(S) - (p.y + p.h/2)) < 5;
+          const allow = p.w * ((onBoard ? S.tune.overhangBoard : S.tune.overhangPoops) || 0.33);
+          if(leftOver <= allow && rightOver <= allow){   // sitting mostly ON its support
             committing = true;
             p.stuck = 0;
             p.settle = (p.settle||0) + 1;
@@ -344,6 +356,14 @@
     return comOff + leverage;                          // where the leaning mass really is
   };
 
+  // Temporarily widen the platform (the Extendo upgrade); add=0 takes it back.
+  WB.setPlatBonus = function(S, add){
+    const plat = S.plat;
+    plat.w += add - (plat.bonusW || 0);
+    plat.bonusW = add;
+    plat.x = clamp(plat.x, plat.w/2, W - plat.w/2);
+  };
+
   // ---------- Lettuce & diarrhea hazard ----------
   // Whoever supplies the lettuce (endless: it falls from the sky; campaign:
   // rivals roll it along the plank), the rest plays out the same way.
@@ -371,9 +391,10 @@
 
   function shrinkPlatform(S, x){
     const plat = S.plat;
-    plat.shrink = Math.min(plat.shrink + SMALL_CUBE, SMALL_CUBE*3);
+    const per = S.tune.shrinkPerDrop || SMALL_CUBE;   // the Awning upgrade halves it
+    plat.shrink = Math.min(plat.shrink + per, per*3);
     plat.shrinkTimer = 1800;                    // ~30 seconds
-    plat.w = plat.baseW - plat.shrink;
+    plat.w = plat.baseW - plat.shrink + (plat.bonusW || 0);
     plat.x = clamp(plat.x, plat.w/2, W - plat.w/2);
     S.shake = Math.min(S.shake + 6, 14);
     WB.sfx('fizz');
@@ -421,7 +442,14 @@
       d.vy += GRAV*1.7; d.y += d.vy; d.x += d.vx; d.vx *= 0.99;
       const s = diarrheaSurface(S, d.x - plat.x);
       if(s && d.y + d.r >= s.y){
-        if(s.cube) meltCube(S, s.cube); else shrinkPlatform(S, d.x);
+        if(s.cube){
+          // the Umbrella upgrade shelters the top poop of the stack
+          const sheltered = S.tune.umbrella && s.cube === S.stack.reduce((a, c) => (c.y - c.h/2 < a.y - a.h/2 ? c : a), s.cube);
+          if(!sheltered) meltCube(S, s.cube);
+        } else {
+          shrinkPlatform(S, d.x);
+          if(S.hooks.onBoardDrop) S.hooks.onBoardDrop();   // the Gutter upgrade
+        }
         diarrheaSplat(S, d.x, s.y + S.camOffset);
         S.diarrhea.splice(i,1); continue;
       }
@@ -429,7 +457,7 @@
     }
 
     // platform slowly earned back after the shrink timer runs out
-    if(plat.shrinkTimer > 0){ plat.shrinkTimer--; if(plat.shrinkTimer===0){ plat.shrink=0; plat.w=plat.baseW; } }
+    if(plat.shrinkTimer > 0){ plat.shrinkTimer--; if(plat.shrinkTimer===0){ plat.shrink=0; plat.w=plat.baseW + (plat.bonusW||0); } }
   };
 
 })();

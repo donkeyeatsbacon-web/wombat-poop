@@ -415,7 +415,28 @@ Same shape as 2C: tier 1 comes with the mate, tier 2 is a choice of branch.
                               plank
 
 
-Still open: nothing. Next: build currency + the platform tree.
+BUILT: currency + the platform tree (branch gum-nuts, 2026-10-13)
+-----------------------------------------------------------------
+  - Gum Nuts, golden poops (about 1 in 32), the Workshop page, both top-5
+    lists, -6 charm for retreating from a mate.
+  - Prices: tier 1 600, tier 2 1200, tier 3 2000; switching branch costs
+    30% of what you paid for the tiers you move. A simulated player earns
+    ~40 Gum Nuts a minute, so tier 1 is about one good 15-minute season.
+  - Three platform upgrades changed from section 4A, because the originals
+    don't work with the game as it is:
+      Dash (double-tap dodge)  -> Snap: much tighter following of finger or
+                                  mouse (a double-tap doesn't work on touch)
+      Shock Pole               -> Low Centre: a lopsided pile pushes the
+                                  tower 20% less (nothing shakes the tower
+                                  yet; revisit when Stompers exist)
+      Balance Lamp             -> Slow-Mo: once per level, time slows as the
+                                  tower is about to go (the campaign has no
+                                  wobble meter to light up)
+    Super Glue is now "the 45% overhang works on top of other poops too",
+    and Catapult hops edge-landers toward the middle.
+
+Next slices (section 6): rival personalities on the plank, then mates who
+join you, then the wombat tree and cosmetics.
 
 
 7. DECISIONS FOR YOU
