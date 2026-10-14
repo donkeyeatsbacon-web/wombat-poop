@@ -4,6 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>💩 Combat Wombat: Campaign 💩</title>
+<meta name="description" content="A season in your territory: woo mates and out-stack rival wombats by building poop towers.">
+<meta name="theme-color" content="#6ab04c">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Combat Wombat">
+<meta property="og:title" content="Combat Wombat: Campaign">
+<meta property="og:description" content="A season in your territory: woo mates and out-stack rival wombats by building poop towers.">
+<meta property="og:url" content="https://donkeyeatsbacon-web.github.io/wombat-poop/wombat-campaign.html">
+<meta property="og:image" content="https://donkeyeatsbacon-web.github.io/wombat-poop/icons/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A cartoon wombat in a green headband straining on a plank, next to a tower of stacked poop cubes.">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="shared/base.css?v=30c6dc38">
 <style>
   #hint { font-size: 13px; }
@@ -12,7 +27,7 @@
 <body>
 <div id="wrap"><canvas id="game" width="720" height="960"></canvas></div>
 <div id="hint"></div>
-<script src="shared/core.js?v=f6589e31"></script>
+<script src="shared/core.js?v=73f95151"></script>
 <script src="shared/sound.js?v=945a409e"></script>
 <script src="shared/art.js?v=c54f25b5"></script>
 <script src="shared/physics.js?v=ce40dcd2"></script>
@@ -735,15 +750,23 @@
 
     ctx.restore();
 
-    // HUD
-    ctx.fillStyle='#2d5016'; ctx.font='bold 25px "Comic Neue", "Comic Sans MS", cursive'; ctx.textAlign='left';
-    ctx.fillText((L.node.type==='mate'?'💗 Impress ':'😤 Out-stack ')+L.node.name, 16, 38);
+    // HUD, on soft panels so the wombat can crawl under them
+    const who = (L.node.type==='mate'?'💗 Impress ':'😤 Out-stack ')+L.node.name;
+    const heckle = L.foes.length ? '⚠ '+L.foes.map(f=>f.name).join(' & ')+' heckling you with lettuce!' : '';
+    ctx.font='bold 14px "Comic Neue", "Comic Sans MS", cursive'; const heckleW = ctx.measureText(heckle).width;
+    ctx.font='bold 25px "Comic Neue", "Comic Sans MS", cursive';
+    const panelW = Math.max(ctx.measureText(who).width, heckleW, 250) + 24;
+    ctx.fillStyle='rgba(255,255,255,.72)'; ctx.strokeStyle='rgba(42,28,18,.3)'; ctx.lineWidth=2;
+    roundRect(6, 8, panelW, L.foes.length ? 88 : 66, 14); ctx.fill(); ctx.stroke();
+    roundRect(W-118, 8, 110, 50, 14); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#2d5016'; ctx.textAlign='left';
+    ctx.fillText(who, 16, 38);
     const tall = Math.round((WB.platTop(L)-WB.stackTopWorldY(L))/42);
     ctx.font='17px "Comic Neue", "Comic Sans MS", cursive';
     ctx.fillText('stack '+Math.min(L.stacksDone+1,L.stacksNeeded)+' / '+L.stacksNeeded
       +'   ·   height '+tall+' / '+L.target, 16, 62);
     if(L.foes.length){ ctx.fillStyle='#c0392b'; ctx.font='bold 14px "Comic Neue", "Comic Sans MS", cursive';
-      ctx.fillText('⚠ '+L.foes.map(f=>f.name).join(' & ')+' heckling you with lettuce!', 16, 84); }
+      ctx.fillText(heckle, 16, 84); }
     ctx.textAlign='right'; ctx.font='24px serif';
     let s2=''; for(let i=0;i<L.maxMiss;i++) s2 += i<L.maxMiss-L.misses ? '🧻' : '❌';
     ctx.fillText(s2, W-14, 44); ctx.textAlign='left';

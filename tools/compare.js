@@ -110,6 +110,7 @@ function makeCtx(log){
     createLinearGradient(...a){ const g = { grad:a, stops:[], addColorStop(o,c){ g.stops.push(o+':'+c); } }; return g; },
     createRadialGradient(...a){ const g = { grad:['radial', ...a], stops:[], addColorStop(o,c){ g.stops.push(o+':'+c); } }; return g; },
     setLineDash(d){ st.dash = d.slice(); },
+    measureText(txt){ return { width: String(txt).length * (parseFloat(/(\d+(?:\.\d+)?)px/.exec(st.font)?.[1]) || 10) * 0.55 }; },
   };
   for(const k of ['fillStyle','strokeStyle','globalAlpha','lineWidth','lineCap','lineJoin','font','textAlign'])
     Object.defineProperty(ctx, k, { get(){ return st[k]; }, set(v){ st[k] = k==='font' ? String(v).replace(/,\s+/g, ',') : v; } });
