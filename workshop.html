@@ -64,7 +64,7 @@
       when it's set to Upgraded (Classic stays stock, with its own high scores).
       In each tree the second tier is a choice of two branches: taking one locks the other, but you can switch later
       for a fee.</p>
-    <section class="trees" id="trees" aria-label="Platform upgrades"></section>
+    <section class="trees" id="trees" aria-label="Upgrades"></section>
     <section class="earn">
       <h2>Earning Gum Nuts</h2>
       <ul>
@@ -76,8 +76,8 @@
   </div>
 </div>
 <script src="shared/core.js?v=2467b2bd"></script>
-<script src="shared/sound.js?v=76c7e68d"></script>
-<script src="shared/progress.js?v=f34ccd3e"></script>
+<script src="shared/sound.js?v=aefb19fa"></script>
+<script src="shared/progress.js?v=da6fab86"></script>
 <script>
 (() => {
   const P = WB.progress;
@@ -121,9 +121,21 @@
       // tier 1
       const t1 = el('div', 'tier');
       t1.append(el('div', 'tierLabel', 'Tier 1'));
-      t1.append(node(tree.t1, lv.tier >= 1 ? 'owned' : 'open', lv.tier >= 1 ? null : buyButton(tree, null, P.PRICE[1])));
+      t1.append(node(tree.t1, lv.tier >= 1 ? 'owned' : 'open', lv.tier >= 1 ? null : buyButton(tree, null, P.priceOf(tree, 1))));
       card.append(t1);
 
+      // a straight line (the burrow): one upgrade per tier
+      if(tree.linear){
+        tree.a.forEach((item, k) => {
+          const tier = k + 2, row = el('div', 'tier');
+          row.append(el('div', 'tierLabel', 'Tier ' + tier));
+          const owned = lv.tier >= tier, ready = lv.tier === tier - 1;
+          row.append(node(item, owned ? 'owned' : ready ? 'open' : 'locked', !owned && ready ? buyButton(tree, 'a', P.priceOf(tree, tier)) : null));
+          card.append(row);
+        });
+        host.append(card);
+        continue;
+      }
       // tiers 2 and 3: two branches side by side
       const depth = Math.max(tree.a.length, tree.b.length);
       for(let k = 0; k < depth; k++){

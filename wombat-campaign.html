@@ -28,8 +28,8 @@
 <div id="wrap"><canvas id="game" width="720" height="960"></canvas></div>
 <div id="hint"></div>
 <script src="shared/core.js?v=2467b2bd"></script>
-<script src="shared/sound.js?v=76c7e68d"></script>
-<script src="shared/progress.js?v=f34ccd3e"></script>
+<script src="shared/sound.js?v=aefb19fa"></script>
+<script src="shared/progress.js?v=da6fab86"></script>
 <script src="shared/art.js?v=10b403ae"></script>
 <script src="shared/physics.js?v=ea1ea799"></script>
 <script src="shared/wombat.js?v=4c6fc133"></script>
@@ -51,7 +51,9 @@
   let mode = MODE.INTRO;
 
   const CHARM_GOAL = 100, THREAT_MAX = 100;
-  const player = { charm: 0, threat: 0, day: 1, buffs: [], debuffs: [] };
+  // household: mates you've wooed, who live in your burrow ({ name, kind });
+  // party: the names you last took along to a level
+  const player = { charm: 0, threat: 0, day: 1, buffs: [], debuffs: [], household: [], party: [] };
 
   const BUFFS = [
     { key:'wide',  icon:'🧡', name:'Charmer',     desc:'Wider catch platform' },
@@ -109,7 +111,28 @@
   const rivalPool = () => wave < 1 ? ['roller','lobber']
                         : wave < 2 ? ['roller','lobber','rotter','bully']
                         : Object.keys(RIVAL_KINDS);
-  const kindOf = n => RIVAL_KINDS[n.kind] ? n.kind : 'roller';   // invading rivals stop on a ring this far from the burrow, each on its own trail
+  const kindOf = n => RIVAL_KINDS[n.kind] ? n.kind : 'roller';
+
+  // ---------- Mate personalities ----------
+  // Every mate has one, shown on her marker. Woo her and she moves into your
+  // burrow; take her along to a level (see the party picker) for her perk.
+  // The Sage's perk works from the burrow, so she doesn't need a seat.
+  const MATE_KINDS = {
+    gardener:{ icon:'🌿', name:'Gardener', desc:'eats the first lettuce of each level before your wombat can' },
+    builder: { icon:'🔨', name:'Builder',  desc:'your platform is 20 px wider' },
+    lookout: { icon:'👀', name:'Lookout',  desc:'a shadow shows where the next poop will land' },
+    steady:  { icon:'🧘', name:'Steady',   desc:'the tower\'s wobble dies down faster' },
+    charmer: { icon:'💝', name:'Charmer',  desc:'+25% Gum Nuts from levels' },
+    bouncer: { icon:'🛡', name:'Bouncer',  desc:'shoos one rival off your plank at the start of each level' },
+    digger:  { icon:'⛏', name:'Digger',   desc:'the first poop you miss each level costs no toilet paper' },
+    forager: { icon:'🍄', name:'Forager',  desc:'+1 Gum Nut for every 5 poops stacked' },
+    nurse:   { icon:'🩹', name:'Nurse',    desc:'+1 toilet paper' },
+    sage:    { icon:'🦉', name:'Sage',     desc:'shows how many days until each rival reaches you (from the burrow)' },
+    drummer: { icon:'🥁', name:'Drummer',  desc:'a drum beat counts in each poop' },
+    acrobat: { icon:'🤸', name:'Acrobat',  desc:'flicks back one poop per stack that slides off the edge' },
+  };
+  const mateKindOf = n => MATE_KINDS[n.kind] ? n.kind : 'gardener';
+  const inBurrow = kind => player.household.some(m => m.kind === kind);   // invading rivals stop on a ring this far from the burrow, each on its own trail
 
   function buildMap(){
     nodes = []; wave = 0; encounters = 0;
@@ -132,7 +155,7 @@
       if(s.type==='mate'){
         // mates wander off on their own schedule — woo them before they go
         nodes.push({ homeX:s.x, homeY:s.y, awayX:ax, awayY:ay, x:s.x, y:s.y, type:'mate',
-          name:MATE_NAMES[mi%MATE_NAMES.length], target:4, stacks:2, state:'open',
+          name:MATE_NAMES[mi%MATE_NAMES.length], kind:['gardener','builder','lookout'][mi%3], target:4, stacks:2, state:'open',
           march:0, speed:[0.20,0.16,0.26][mi%3], delay:[1,3,0][mi%3] });
         mi++;
       } else {
@@ -208,6 +231,8 @@
       n.delay = 1 + ((Math.random()*3)|0);        // staggered arrival
       n.speed = [0.34,0.26,0.20][(Math.random()*3)|0] + wave*0.03;
     } else {
+      const kinds = Object.keys(MATE_KINDS);
+      n.kind  = kinds[(Math.random()*kinds.length)|0];
       n.delay = 1 + ((Math.random()*3)|0);
       n.speed = [0.20,0.16,0.26][(Math.random()*3)|0] + wave*0.02;
     }
@@ -236,7 +261,8 @@
     return {
       v: SAVE_VERSION,
       player: { charm:player.charm, threat:player.threat, day:player.day,
-                buffs:player.buffs.slice(), debuffs:player.debuffs.slice() },
+                buffs:player.buffs.slice(), debuffs:player.debuffs.slice(),
+                household:player.household.map(m=>({ name:m.name, kind:m.kind })), party:player.party.slice() },
       wave, encounters,
       nodes: nodes.map(n=>({ homeX:n.homeX, homeY:n.homeY, awayX:n.awayX, awayY:n.awayY,
         x:n.x, y:n.y, type:n.type, name:n.name, target:n.target, stacks:n.stacks,
@@ -281,6 +307,9 @@
     player.day     = Math.max(1, d.player.day|0);
     player.buffs   = d.player.buffs.filter(k=>BUFF_KEYS.includes(k));
     player.debuffs = d.player.debuffs.filter(k=>DEBUFF_KEYS.includes(k));
+    player.household = (Array.isArray(d.player.household) ? d.player.household : [])
+      .filter(m => m && typeof m.name === 'string' && MATE_KINDS[m.kind]).map(m => ({ name:m.name, kind:m.kind }));
+    player.party = (Array.isArray(d.player.party) ? d.player.party : []).filter(nm => typeof nm === 'string');
     wave       = Number.isFinite(d.wave) ? d.wave : 0;
     encounters = Number.isFinite(d.encounters) ? d.encounters : 0;
     nodes      = d.nodes.map(n=>({ ...n, invader: !!n.invader }));
@@ -294,6 +323,7 @@
       }
       if(n.march > 0){ const p = nodePos(n); n.x = p.x; n.y = p.y; }
       if(n.type==='rival') n.kind = kindOf(n);        // saves from before personalities
+      if(n.type==='mate')  n.kind = mateKindOf(n);
     }
     womb.x = homeNode.x; womb.y = homeNode.y + 30;
     L = null; travel = null; toast = null;
@@ -302,7 +332,7 @@
 
   function newGame(){
     player.charm = 0; player.threat = 0; player.day = 1;
-    player.buffs = []; player.debuffs = [];
+    player.buffs = []; player.debuffs = []; player.household = []; player.party = [];
     L = null; travel = null; toast = null;
     buildMap();
     mode = MODE.OVERWORLD;
@@ -326,12 +356,21 @@
     restoreMax: 0.062, restoreInstab: 0.013, restoreMin: 0.019,
     damping: 0.93
   };
+  // a mate's perk is on if she came along to this level
+  const along = kind => L && L.party.find(m => m.kind === kind);
+
   const hooks = {
-    onMiss: () => { if(L.misses>=L.maxMiss && !L.result){ L.result='lose'; L.loseWhy='misses'; L.resultT=0; WB.sfx('sad'); } },
+    onMiss: () => {
+      const dig = along('digger');
+      if(dig && L.pit > 0){ L.pit--; L.misses--; showToast('⛏ '+dig.name+'\'s pit caught it: no toilet paper lost'); return; }
+      if(L.misses>=L.maxMiss && !L.result){ L.result='lose'; L.loseWhy='misses'; L.resultT=0; WB.sfx('sad'); }
+    },
     // Gum Nuts: 1 per poop stacked, 5 more for a golden one
     onSettle: p => {
       if(p.bad){ L.stack[L.stack.length-1].rotT = 150; return; }   // a rival's bad cube: worth nothing, and it rots
       L.nuts += 1; if(WB.isGolden(p.hue)){ L.nuts += 5; }
+      L.stacked++;
+      if(along('forager') && L.stacked % 5 === 0) L.nuts += 1;     // the Forager's find
     },
     onBoardDrop: () => { if(L.M.gutter) L.nuts += 1; },
     nextPoopAt: t => t + rand(70,150)
@@ -340,10 +379,18 @@
   function startLevel(node){
     const p = effectiveParams(node.target);
     const M = WB.progress.mods(true);          // the campaign always uses your Workshop upgrades
-    L = Object.assign(WB.newRun(t, { platW:p.platW + M.widthAdd, tune:WB.progress.tune({ ...TUNE, fallMul:p.fallMul }, M), hooks,
+    // the mates who came along, sitting on the plank behind your wombat
+    const party = player.party.map(nm => player.household.find(m => m.name === nm)).filter(Boolean)
+      .slice(0, WB.progress.seats())
+      .map((m, i) => ({ ...m, x: W/2 - 70*(i+1), crawl: i*1.7, wob: 0, face: 0, blink: 0 }));
+    const has = k => party.some(m => m.kind === k);
+    const tune = WB.progress.tune({ ...TUNE, fallMul:p.fallMul }, M);
+    if(has('steady')) tune.damping -= 0.03;
+    L = Object.assign(WB.newRun(t, { platW:p.platW + M.widthAdd + (has('builder') ? 20 : 0), tune, hooks,
                                      steerMul:M.steerMul, easeMul:M.easeMul }), {
-      node, M,
-      maxMiss:p.maxMiss, margin:p.margin + M.marginAdd, target:p.target,
+      node, M, party,
+      pit: has('digger') ? 1 : 0, stacked: 0, gardenerReady: has('gardener'), acroReady: has('acrobat'), beat: null,
+      maxMiss:p.maxMiss + (has('nurse') ? 1 : 0), margin:p.margin + M.marginAdd, target:p.target,
       nuts:0, stackMaxRatio:0, anchorReady:true, slowmoReady:true, slowmoLeft:0, extendT:0,
       goalY:(H-70-13) - (p.target*42),
       stacksNeeded:node.stacks||1, stacksDone:0, banking:0, stars:[],
@@ -358,6 +405,11 @@
       }),
       lobs:[], stolen:null
     });
+    const bouncer = along('bouncer');
+    if(bouncer){                                   // she shoos one rival off before you start
+      const msg = evict(L.foes.find(f => !f.leaving), 'is shooed off by '+bouncer.name, true);
+      if(msg) showToast('🛡 '+msg);
+    }
     mode = MODE.LEVEL;
   }
 
@@ -491,6 +543,26 @@
       if(s.x < -80 || s.x > W + 80) L.stolen = null;
     }
 
+    // the Gardener gets to the first lettuce before your wombat does
+    const gardener = along('gardener');
+    if(gardener && L.gardenerReady && L.lettuce){
+      L.gardenerReady = false;
+      for(let k=0;k<8;k++) L.particles.push({ x:L.lettuce.x + rand(-10,10), y:L.lettuce.y + rand(-6,6), vx:rand(-3,3), vy:rand(-3.5,-0.5),
+        life:rand(12,24), max:24, r:rand(2,4), color:'#7cc743', kind:'splat', g:.25 });
+      L.lettuce = null; WB.sfx('crunch');
+      showToast('🌿 '+gardener.name+' ate the lettuce before your wombat could');
+    }
+    // mates sit in a row beside your wombat, on the roomier side (toward the
+    // middle of the plank), so they never pile up at an end
+    const side = L.wombat.x < W/2 ? 1 : -1, lim = (L.crawlBound || (topPlat.w/2 - 40)) + 40;
+    L.party.forEach((m, i) => {
+      const tx = clamp(L.wombat.x + side*64*(i+1), W/2 - lim - 20, W/2 + lim + 20);
+      const dx = tx - m.x;
+      m.x += dx*0.08; m.crawl += Math.abs(dx) > 2 ? 0.2 : 0.05; m.wob = Math.sin(m.crawl)*3;
+      m.face += ((L.wombat.x > m.x ? 1 : -1)*0.7 - m.face)*0.1;
+      if(m.blink>0) m.blink--; else if(Math.random()<0.008) m.blink=8;
+    });
+
     // a caught bad cube rots into a puddle a couple of seconds later
     for(const c of L.stack) if(c.rotT && !c.melting && !c.melted && --c.rotT <= 0) WB.meltCube(L, c);
 
@@ -536,6 +608,23 @@
     WB.updateWombat(L, t);
     updateHazards();
     WB.stepPlops(L);
+    // the Acrobat flicks back a poop that has slid off the edge (once per stack)
+    const acro = along('acrobat');
+    if(acro && L.acroReady){
+      const top = WB.platTop(L);
+      const slid = L.plops.find(q => !q.bad && !q.collapsed && (q._boarded || q.contact > 0) && q.y - q.h/2 > top + 6);
+      if(slid){
+        L.acroReady = false;
+        slid.x = L.plat.x; slid.y = WB.stackTopWorldY(L) - 90; slid.vx = 0; slid.vy = -2; slid.contact = 0; slid._boarded = false;
+        WB.sfx('click'); showToast('🤸 '+acro.name+' flicked it back!');
+      }
+    }
+    // the Drummer counts in each poop: three beats, then out it comes
+    if(along('drummer') && L.wombat.mode === 'push' && [1, 9, 17].includes(L.wombat.timer)){
+      const n = [1, 9, 17].indexOf(L.wombat.timer);
+      L.beat = { n: 3 - n, life: 8 }; WB.sfx('drum', n === 2);
+    }
+    if(L.beat && --L.beat.life <= 0) L.beat = null;
 
     const effOff = WB.updateStack(L, t);
     if(effOff !== null){
@@ -558,6 +647,7 @@
       if(notes.some(Boolean)) showToast(notes.filter(Boolean).join('   ·   '));
       L.stackMaxRatio = 0;
       if(L.M.extendo){ WB.setPlatBonus(L, 20); L.extendT = 300; }
+      L.acroReady = !!along('acrobat');                // the Acrobat is ready again for the next stack
       WB.sfx('levelup'); tutorialDone();
       for(let k=0;k<16;k++) L.stars.push({ x:L.pileCOMx, y:L.goalY, vx:rand(-4,4), vy:rand(-6,-1),
         life:rand(24,44), col:['#ffe14d','#ff9ff3','#7bed9f','#70a1ff'][k%4] });
@@ -569,7 +659,8 @@
   function endLevel(success, retreat){
     const node = L.node;
     // Gum Nuts from the level, plus the bonus for winning it
-    const nuts = L.nuts + (success && !retreat ? (node.type==='mate' ? 10 : 15) : 0);
+    let nuts = L.nuts + (success && !retreat ? (node.type==='mate' ? 10 : 15) : 0);
+    if(along('charmer')) nuts = Math.round(nuts * 1.25);
     WB.progress.earn(nuts);
     const nutNote = nuts ? '   ·   +'+nuts+' Gum Nuts' : '';
     if(retreat){
@@ -581,9 +672,10 @@
         player.charm = clamp(player.charm+22,0,CHARM_GOAL);
         const b = grantRandom(BUFFS, player.buffs);
         if(player.debuffs.length) player.debuffs.shift();
-        const was = node.name;
-        respawnNode(node);                       // she pairs off; a newcomer takes the spot
-        showToast(was+' is smitten! +22 charm'+(b?'  ·  buff: '+b.icon+' '+b.name:'')+nutNote);
+        const was = node.name, perk = MATE_KINDS[mateKindOf(node)];
+        player.household.push({ name: was, kind: mateKindOf(node) });   // she moves into your burrow
+        respawnNode(node);                       // and a newcomer takes her spot
+        showToast(was+' is smitten and joins your burrow! '+perk.icon+' '+perk.name+'  ·  +22 charm'+(b?'  ·  '+b.icon+' '+b.name:'')+nutNote);
       } else showToast(node.name+' was unimpressed…'+nutNote);
     } else {
       if(success){
@@ -632,7 +724,8 @@
       if(mode===MODE.WIN)  drawBanner('🏆 Season won! Your charm reigns.','#ffe14d');
       if(mode===MODE.LOSE) drawBanner('💀 Rivals overran your territory.','#ff8a8a');
     }
-    if(paused) drawPauseMenu();
+    if(choosing) drawPicker();
+    else if(paused) drawPauseMenu();
     else if(canPause()) drawRoundButton(PAUSE_BTN, mode===MODE.LEVEL ? 'pause' : 'menu');
     if(onTitleScreen()){
       drawButton(BTN_MENU, '◂ Menu', '#fff8e7', '#7a3d12', 22);
@@ -698,10 +791,77 @@
         ctx.font='18px "Comic Neue", "Comic Sans MS", cursive';
         for(const e of effects){ y += 28; ctx.fillText(e.icon+'  '+e.name+': '+e.desc.toLowerCase(), W/2, y); }
       }
+      if(player.household.length){
+        y += 44; ctx.font='bold 20px "Comic Neue", "Comic Sans MS", cursive';
+        ctx.fillText('Your burrow ('+WB.progress.seats()+' seat'+(WB.progress.seats()>1?'s':'')+')', W/2, y);
+        ctx.font='16px "Comic Neue", "Comic Sans MS", cursive';
+        const shown = player.household.slice(-6);
+        for(const m of shown){ const K = MATE_KINDS[m.kind]; y += 24; ctx.fillText(K.icon+'  '+m.name+', '+K.name+': '+K.desc, W/2, y); }
+        if(player.household.length > shown.length){ y += 24; ctx.fillText('…and '+(player.household.length - shown.length)+' more', W/2, y); }
+      }
     }
     ctx.textAlign='left';
   }
   function quitToMenu(){ saveGame(); WB.toMenu(); }
+
+  // ---------- Who comes along? ----------
+  // Tapping a wombat on the map, once you have mates in your burrow, asks who
+  // comes along to the level (as many as you have seats; see the Workshop).
+  let choosing = null;                       // { node, picked: [names] } while the picker is open
+  function goTo(n){ travel = { node:n, fromX:womb.x, fromY:womb.y, toX:n.x, toY:n.y+30, p:0 }; mode = MODE.TRAVEL; }
+  function openPicker(node){
+    const names = player.household.map(m => m.name);
+    choosing = { node, picked: player.party.filter(nm => names.includes(nm)).slice(0, WB.progress.seats()) };
+  }
+  function pickerLayout(){
+    // up to 8: whoever is picked first, then the most recent arrivals
+    const picked = player.household.filter(m => choosing.picked.includes(m.name));
+    const rest = player.household.filter(m => !choosing.picked.includes(m.name)).reverse();
+    const list = [...picked, ...rest].slice(0, 8);
+    const top = 210, rowsY = top + 92;
+    const rows = list.map((m, i) => ({ m, b:{ x:70, y:rowsY + i*56, w:W-140, h:48 } }));
+    const by = rowsY + list.length*56 + 14;
+    return { top, list, rows, h: by + 70 - top,
+             go:{ x:W/2-226, y:by, w:216, h:56 }, cancel:{ x:W/2+10, y:by, w:216, h:56 } };
+  }
+  function drawPicker(){
+    const P = pickerLayout(), seats = WB.progress.seats();
+    ctx.fillStyle='rgba(0,0,0,.55)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#fff8e7'; ctx.strokeStyle='#7a3d12'; ctx.lineWidth=4;
+    roundRect(50, P.top, W-100, P.h, 18); ctx.fill(); ctx.stroke();
+    ctx.textAlign='center'; ctx.fillStyle='#5a2d0c'; ctx.font='bold 26px "Comic Neue", "Comic Sans MS", cursive';
+    ctx.fillText('Who comes along to '+choosing.node.name+'?', W/2, P.top+42);
+    ctx.font='16px "Comic Neue", "Comic Sans MS", cursive'; ctx.fillStyle='#7a3d12';
+    ctx.fillText('Seats: '+choosing.picked.length+' / '+seats+'  ·  tap to choose'+(seats < 3 ? '  ·  more seats in the Workshop' : ''), W/2, P.top+68);
+    for(const r of P.rows){
+      const on = choosing.picked.includes(r.m.name), K = MATE_KINDS[r.m.kind];
+      ctx.fillStyle = on ? '#e3f6d8' : '#fff'; ctx.strokeStyle = on ? '#3f8f3a' : '#c9a27a'; ctx.lineWidth = 3;
+      roundRect(r.b.x, r.b.y, r.b.w, r.b.h, 12); ctx.fill(); ctx.stroke();
+      ctx.textAlign='left'; ctx.font='22px serif'; ctx.fillStyle='#000'; ctx.fillText(K.icon, r.b.x+12, r.b.y+32);
+      ctx.fillStyle='#5a2d0c'; ctx.font='bold 17px "Comic Neue", "Comic Sans MS", cursive';
+      ctx.fillText(r.m.name+' · '+K.name, r.b.x+46, r.b.y+21);
+      ctx.fillStyle='#7a5a3a'; ctx.font='14px "Comic Neue", "Comic Sans MS", cursive';
+      ctx.fillText(K.desc, r.b.x+46, r.b.y+39);
+      if(on){ ctx.textAlign='right'; ctx.fillStyle='#2f7a2a'; ctx.font='bold 20px "Comic Neue", "Comic Sans MS", cursive'; ctx.fillText('✓', r.b.x+r.b.w-14, r.b.y+31); }
+    }
+    drawButton(P.go, choosing.picked.length ? '▶ Go' : '▶ Go alone', '#7bed9f', '#14532d', 22);
+    drawButton(P.cancel, 'Cancel', '#fff8e7', '#7a3d12', 22);
+    ctx.textAlign='left';
+  }
+  function pickerTap(px, py){
+    const P = pickerLayout();
+    if(WB.hitBtn(P.go, px, py)){
+      player.party = choosing.picked.slice(); const node = choosing.node; choosing = null;
+      WB.sfx('click'); goTo(node); return;
+    }
+    if(WB.hitBtn(P.cancel, px, py)){ choosing = null; WB.sfx('click'); return; }
+    const r = P.rows.find(r => WB.hitBtn(r.b, px, py));
+    if(!r) return;
+    const at = choosing.picked.indexOf(r.m.name);
+    if(at >= 0) choosing.picked.splice(at, 1);
+    else { choosing.picked.push(r.m.name); while(choosing.picked.length > WB.progress.seats()) choosing.picked.shift(); }
+    WB.sfx('click');
+  }
 
   function drawIntro(){
     drawSky();
@@ -822,8 +982,14 @@
     ctx.font='bold 16px "Comic Neue", "Comic Sans MS", cursive'; ctx.textAlign='center';
     ctx.fillText((isRival?'😤 ':'💗 ')+n.name, n.x, n.y+46);
     ctx.fillStyle='#333'; ctx.font='13px "Comic Neue", "Comic Sans MS", cursive';
-    ctx.fillText((isRival ? RIVAL_KINDS[kindOf(n)].icon+' '+RIVAL_KINDS[kindOf(n)].name+' · ' : '')+n.stacks+'× stack of '+n.target, n.x, n.y+62);
-    if(isRival && n.invader){
+    const K = isRival ? RIVAL_KINDS[kindOf(n)] : MATE_KINDS[mateKindOf(n)];
+    ctx.fillText(K.icon+' '+K.name+' · '+n.stacks+'× stack of '+n.target, n.x, n.y+62);
+    if(isRival && !n.invader && inBurrow('sage')){
+      // the Sage reads the land: days until this rival reaches you
+      const days = n.delay + Math.ceil((1 - n.march)/n.speed - 1e-9);
+      ctx.fillStyle='#5a3a8a'; ctx.font='bold 13px "Comic Neue", "Comic Sans MS", cursive';
+      ctx.fillText('🦉 reaches you in '+days+' day'+(days===1?'':'s'), n.x, n.y+78);
+    } else if(isRival && n.invader){
       ctx.fillStyle='#c0392b'; ctx.font='bold 13px "Comic Neue", "Comic Sans MS", cursive';
       ctx.fillText('⚠ IN YOUR TERRITORY', n.x, n.y+78);
     } else if(fresh){
@@ -893,6 +1059,20 @@
     drawGround(L.plat);
     drawGoalLine(L.goalY);
     if(tutorial && !L.banking && !L.result) drawTutorial();
+    // the Lookout's shadow: where the lowest falling poop (or the one about to drop) will land
+    if(along('lookout')){
+      const fall = L.plops.filter(q => !q.bad && !q.collapsed).sort((a, b) => b.y - a.y)[0];
+      const sx = fall ? fall.x : L.wombat.mode === 'push' ? L.wombat.x : null;
+      if(sx !== null){
+        const rx = fall ? Math.max(16, fall.w*0.5) : 24;
+        ctx.fillStyle = 'rgba(42,28,18,.45)';
+        ctx.beginPath(); ctx.ellipse(sx, L.plat.y + 16, rx, 7, 0, 0, 7); ctx.fill();
+        // a little marker over the spot, bobbing
+        const my = L.plat.y + 2 + Math.sin(t*0.25)*3;
+        ctx.fillStyle = '#ffe14d'; ctx.strokeStyle = WB.INK; ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.moveTo(sx - 8, my - 12); ctx.lineTo(sx + 8, my - 12); ctx.lineTo(sx, my); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+    }
     drawPlatform(L.plat);
     drawStack(L, !L.toppling);
     for(const p of L.plops) drawPoop(p.x,p.y,p.w,p.h,p.rot,p.squish,p.hue);
@@ -918,7 +1098,17 @@
     for(const g of L.lobs) drawLettuce({ x:g.x, y:g.y, wob:0, eatScale:1, roll:g.rot }, 0);
     if(L.stolen) drawPoop(L.stolen.x, L.stolen.y, L.stolen.w, L.stolen.h, L.stolen.rot, 1, L.stolen.hue);
     drawLettuce(L.lettuce, 0);
+    for(const m of L.party){
+      drawWombatArt({ x:m.x, y:84, face:m.face, strain:0, crawl:m.crawl, wob:m.wob, mode:'crawl', timer:0, blink:m.blink }, 0.62, PAL_MATE, {});
+      ctx.font='18px serif'; ctx.textAlign='center'; ctx.fillText(MATE_KINDS[m.kind].icon, m.x + 24, 50); ctx.textAlign='left';
+    }
     drawWombatArt(L.wombat, 1, PAL_PLAYER, {});
+    if(L.beat){                                     // the Drummer's count-in
+      ctx.save(); ctx.globalAlpha = L.beat.life/8; ctx.textAlign='center';
+      ctx.font='bold 34px "Comic Neue", "Comic Sans MS", cursive'; ctx.lineWidth=5; ctx.strokeStyle='rgba(42,28,18,.8)'; ctx.fillStyle='#ffe14d';
+      ctx.strokeText(String(L.beat.n), L.wombat.x, 168); ctx.fillText(String(L.beat.n), L.wombat.x, 168);
+      ctx.restore();
+    }
     drawParticles(L.particles);
 
     ctx.restore();
@@ -969,7 +1159,8 @@
       ctx.fillText(title, W/2, H/2-10);
       ctx.fillStyle='#fff'; ctx.font='20px "Comic Neue", "Comic Sans MS", cursive';
       ctx.fillText(win ? 'Well stacked!' : L.loseWhy==='misses' ? 'Too many poops hit the ground…' : 'The tower toppled…', W/2, H/2+28);
-      const earned = L.nuts + (win ? (L.node.type==='mate' ? 10 : 15) : 0);
+      let earned = L.nuts + (win ? (L.node.type==='mate' ? 10 : 15) : 0);
+      if(along('charmer')) earned = Math.round(earned * 1.25);
       if(earned){ ctx.fillStyle='#ffd98a'; ctx.font='bold 22px "Comic Neue", "Comic Sans MS", cursive';
         ctx.fillText('+'+earned+' Gum Nuts', W/2, H/2+64); }
       ctx.textAlign='left';
@@ -1010,11 +1201,13 @@
   const input = { keys:{}, pointerX:null };
   window.addEventListener('keydown', e=>{ input.keys[e.key.toLowerCase()]=true;
     if([' ','arrowleft','arrowright'].includes(e.key.toLowerCase())) e.preventDefault();
+    if(choosing){ if(e.key==='Escape') choosing = null; return; }
     if((e.key.toLowerCase()==='p' || e.key==='Escape') && (paused || canPause())) paused = !paused;
     if(e.key.toLowerCase()==='m') WB.sound.toggle(); });
   window.addEventListener('keyup', e=> input.keys[e.key.toLowerCase()]=false);
   const canvasPt = (cx,cy) => WB.canvasPt(cv, cx, cy);
   function onDown(px,py){
+    if(choosing){ pickerTap(px, py); return; }
     if(paused){
       const hit = menuItems().find(it => WB.hitBtn(it.b, px, py));
       if(!hit) return;
@@ -1043,9 +1236,9 @@
       if(chip){ showToast(chip.e.icon+'  '+chip.e.name+' ('+(chip.good ? 'buff' : 'debuff')+'): '+chip.e.desc.toLowerCase()); WB.sfx('click'); return; }
       for(const n of nodes){ if(n.type==='home'||n.state!=='open') continue;
         if(Math.hypot(px-n.x,py-n.y)<42){
-          travel={ node:n, fromX:womb.x, fromY:womb.y, toX:n.x, toY:n.y+30, p:0 };
           WB.sfx('click');
-          mode=MODE.TRAVEL; return;
+          if(player.household.length) openPicker(n); else goTo(n);
+          return;
         } }
     }
   }
