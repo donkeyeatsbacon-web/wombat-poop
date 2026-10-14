@@ -31,7 +31,7 @@ maps onto something real in the code.
 - Things an upgrade can turn: platform width [150 px] and steering
   [9 px/frame on keys, 35% easing to the pointer], toilet paper [3 misses],
   fall speed [gravity 0.16, cap 11 in the campaign], poop sizes [30-78 px],
-  poop rhythm [one every ~1.2-2.5 s, faster as score climbs], wobble
+  poop rhythm [one every ~2-4 s, faster as score climbs], wobble
   settings [push, jitter, pull upright, damping], topple margin, lettuce
   rate, diarrhea length and damage, score per poop [width / 12].
 
