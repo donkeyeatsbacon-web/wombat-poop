@@ -38,8 +38,13 @@ there and play a stacking level against it.
 - **💗 Mates:** stack to impress them for charm and a buff. They wander off if
   you leave them too long.
 - **😤 Rivals:** out-stack them to drive them back. They march on your burrow
-  on their own schedules, and any that arrive heckle your levels by rolling
-  lettuce at your wombat.
+  on their own schedules, and any that arrive join you on the plank in your
+  levels. Each has a personality, shown on its map marker: Rollers and
+  Rotters roll lettuce at your wombat, Lobbers lob it down the field, Bullies
+  shove your wombat, Stompers rattle your tower, Thieves steal your top poop,
+  and Ploppers drop bad cubes that rot. The more that get in, the less of the
+  plank your wombat has. Finish a stack to scare one off, or catch a Lobber's
+  lettuce to send it packing. Nastier types turn up later in a season.
 - **Win the season** by reaching 100 charm; **lose it** if threat reaches 100.
 - **Buffs and debuffs** change your platform width, how fast poops fall, your
   toilet paper and how easily the tower topples. They show as chips under the

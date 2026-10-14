@@ -266,7 +266,7 @@
       // fell past the bottom of the screen
       if(p.y + S.camOffset - p.h/2 > H){
         S.plops.splice(i,1);
-        if(p.collapsed){ continue; }   // knocked loose by diarrhea, not a real miss
+        if(p.collapsed || p.bad){ continue; }   // knocked loose, or a rival's bad cube: not a real miss
         S.misses++;
         WB.splat(S, p.x, H-6);
         WB.sfx('splat');
@@ -355,6 +355,9 @@
     const leverage = S.pileSway * (50 + Math.min(pileH, 700) * 0.14);
     return comOff + leverage;                          // where the leaning mass really is
   };
+
+  WB.meltCube = (S, c) => meltCube(S, c);
+  WB.supportHeightAt = (S, x) => supportHeightAt(S, x);
 
   // Temporarily widen the platform (the Extendo upgrade); add=0 takes it back.
   WB.setPlatBonus = function(S, add){

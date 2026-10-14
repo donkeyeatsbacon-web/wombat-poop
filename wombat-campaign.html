@@ -27,12 +27,12 @@
 <body>
 <div id="wrap"><canvas id="game" width="720" height="960"></canvas></div>
 <div id="hint"></div>
-<script src="shared/core.js?v=6925f7c9"></script>
-<script src="shared/sound.js?v=945a409e"></script>
+<script src="shared/core.js?v=2467b2bd"></script>
+<script src="shared/sound.js?v=76c7e68d"></script>
 <script src="shared/progress.js?v=f34ccd3e"></script>
-<script src="shared/art.js?v=3c47bc68"></script>
-<script src="shared/physics.js?v=427372bc"></script>
-<script src="shared/wombat.js?v=4b3f92f6"></script>
+<script src="shared/art.js?v=10b403ae"></script>
+<script src="shared/physics.js?v=ea1ea799"></script>
+<script src="shared/wombat.js?v=4c6fc133"></script>
 <script>
 (() => {
   const { W, H, topPlat, rand, clamp } = WB;
@@ -91,7 +91,25 @@
   // The first four of each greet a new season; newcomers draw from the rest.
   const MATE_NAMES  = ['Wanda','Winnie','Wendy','Willa','Matilda','Bindi','Pearl','Daisy','Tilly','Mabel','Rosie','Hazel'];
   const RIVAL_NAMES = ['Bruiser','Chomps','Tank','Grunt','Digger','Boof','Crusher','Stomper','Gnasher','Bazza','Thumper','Knuckles'];
-  const INVADE_R = 152;   // invading rivals stop on a ring this far from the burrow, each on its own trail
+  const INVADE_R = 152;
+
+  // ---------- Rival personalities ----------
+  // Every rival has one, shown on its map marker. Early in a season they're
+  // mild; nastier ones move in as the season goes on (rivalPool).
+  // every: frames between attempts [min, max].
+  const RIVAL_KINDS = {
+    roller:  { icon:'🥬', name:'Roller',  every:[360, 620], desc:'rolls lettuce at your wombat' },
+    lobber:  { icon:'🎯', name:'Lobber',  every:[420, 660], desc:'lobs lettuce: catch it to send them packing' },
+    rotter:  { icon:'🤢', name:'Rotter',  every:[420, 700], desc:'rolls rotten lettuce, quick and nasty' },
+    bully:   { icon:'💪', name:'Bully',   every:[480, 720], desc:'shoves your wombat along the plank' },
+    stomper: { icon:'💥', name:'Stomper', every:[420, 660], desc:'stomps the plank and rattles your tower' },
+    thief:   { icon:'🖐', name:'Thief',   every:[600, 840], desc:'steals the top poop off your stack' },
+    plopper: { icon:'💩', name:'Plopper', every:[360, 600], desc:'drops bad poops that rot your stack' },
+  };
+  const rivalPool = () => wave < 1 ? ['roller','lobber']
+                        : wave < 2 ? ['roller','lobber','rotter','bully']
+                        : Object.keys(RIVAL_KINDS);
+  const kindOf = n => RIVAL_KINDS[n.kind] ? n.kind : 'roller';   // invading rivals stop on a ring this far from the burrow, each on its own trail
 
   function buildMap(){
     nodes = []; wave = 0; encounters = 0;
@@ -120,7 +138,7 @@
       } else {
         // rivals march inward on their own schedule — staggered starts & speeds
         nodes.push({ homeX:s.x, homeY:s.y, awayX:ax, awayY:ay, x:s.x, y:s.y, type:'rival',
-          name:RIVAL_NAMES[ri%RIVAL_NAMES.length], target:5, stacks:3, state:'open',
+          name:RIVAL_NAMES[ri%RIVAL_NAMES.length], kind:['roller','lobber','roller'][ri%3], target:5, stacks:3, state:'open',
           march:0, speed:[0.34,0.26,0.20][ri%3], delay:[0,1,3][ri%3], invader:false });
         ri++;
       }
@@ -185,6 +203,8 @@
     n.march   = 0; n.invader = false;
     n.x = n.homeX; n.y = n.homeY;
     if(n.type==='rival'){
+      const pool = rivalPool();
+      n.kind  = pool[(Math.random()*pool.length)|0];
       n.delay = 1 + ((Math.random()*3)|0);        // staggered arrival
       n.speed = [0.34,0.26,0.20][(Math.random()*3)|0] + wave*0.03;
     } else {
@@ -220,7 +240,7 @@
       wave, encounters,
       nodes: nodes.map(n=>({ homeX:n.homeX, homeY:n.homeY, awayX:n.awayX, awayY:n.awayY,
         x:n.x, y:n.y, type:n.type, name:n.name, target:n.target, stacks:n.stacks,
-        state:n.state, march:n.march, speed:n.speed, delay:n.delay, invader:n.invader }))
+        state:n.state, march:n.march, speed:n.speed, delay:n.delay, invader:n.invader, kind:n.kind }))
     };
   }
 
@@ -273,6 +293,7 @@
         n.awayX = homeNode.x + (n.homeX - homeNode.x)*1.5; n.awayY = homeNode.y + (n.homeY - homeNode.y)*1.5;
       }
       if(n.march > 0){ const p = nodePos(n); n.x = p.x; n.y = p.y; }
+      if(n.type==='rival') n.kind = kindOf(n);        // saves from before personalities
     }
     womb.x = homeNode.x; womb.y = homeNode.y + 30;
     L = null; travel = null; toast = null;
@@ -308,7 +329,10 @@
   const hooks = {
     onMiss: () => { if(L.misses>=L.maxMiss && !L.result){ L.result='lose'; L.loseWhy='misses'; L.resultT=0; WB.sfx('sad'); } },
     // Gum Nuts: 1 per poop stacked, 5 more for a golden one
-    onSettle: p => { L.nuts += 1; if(WB.isGolden(p.hue)){ L.nuts += 5; } },
+    onSettle: p => {
+      if(p.bad){ L.stack[L.stack.length-1].rotT = 150; return; }   // a rival's bad cube: worth nothing, and it rots
+      L.nuts += 1; if(WB.isGolden(p.hue)){ L.nuts += 5; }
+    },
     onBoardDrop: () => { if(L.M.gutter) L.nuts += 1; },
     nextPoopAt: t => t + rand(70,150)
   };
@@ -325,29 +349,151 @@
       stacksNeeded:node.stacks||1, stacksDone:0, banking:0, stars:[],
       result:null, resultT:0,
       // rival wombats that have reached the territory heckle you here
-      foes: invaders().map((n,i)=>({ name:n.name, x: i%2 ? W*0.78 : W*0.22, dir: i%2?-1:1,
-              crawl:0, wob:0, blink:0, face:0, throwT: t + 260 + i*140, wind:0 }))
+      // Invading rivals join you on the plank. Each claims a spot at an end of
+      // it (turf: the more there are, the less room your wombat has).
+      foes: invaders().map((n,i)=>{
+        const side = i%2 ? 1 : -1, home = W/2 + side*(250 - 75*Math.floor(i/2));
+        return { name:n.name, kind:kindOf(n), x:home, home, dir:-side,
+                 crawl:0, wob:0, blink:0, face:0, next: t + 260 + i*140, wind:0, windMax:26, jump:0, walk:null };
+      }),
+      lobs:[], stolen:null
     });
     mode = MODE.LEVEL;
   }
 
   // invading rivals shuffle about up top and roll lettuce at your wombat;
   // what happens once it's eaten is the same as endless mode
+  // A rival leaves the plank for the rest of the level. Returns the message
+  // (quiet: let the caller show it, combined with others).
+  function evict(f, verb, quiet){
+    if(!f || f.leaving) return '';
+    f.leaving = true; f.walk = null; f.wind = 0;
+    f.leaveDir = f.home < W/2 ? -1 : 1;
+    const msg = RIVAL_KINDS[f.kind].icon+' '+f.name+' '+verb+'!';
+    if(!quiet) showToast(msg);
+    return msg;
+  }
+
+  // What each kind of rival does when its wind-up finishes.
+  function act(f){
+    const dir = L.wombat.x < f.x ? -1 : 1;
+    switch(f.kind){
+      case 'roller': case 'rotter':                        // roll a leaf along the plank toward the wombat
+        if(!L.lettuce && L.diarrheaTimer<=0)
+          L.lettuce = { x:f.x + dir*30, y:topPlat.y-20, vy:0, vx:dir*2.6, landed:true, wob:0, eatScale:1, rotten: f.kind==='rotter' };
+        break;
+      case 'lobber': {                                     // lob a leaf down the field; catch it to send them off
+        const tx = rand(120, W-120);
+        L.lobs.push({ x:f.x, y:60, vx:(tx - f.x)/110, vy:-6, rot:0, owner:f });
+        break;
+      }
+      case 'bully': f.walk = 'go'; break;                  // stride over and shove the wombat
+      case 'stomper': f.jump = 30; break;                  // jump, then stomp on landing
+      case 'thief': {                                      // snatch the top poop
+        if(L.stack.length < 3 || L.banking || L.stolen) break;
+        const top = L.stack.reduce((a, c) => (c.y - c.h/2 < a.y - a.h/2 ? c : a));
+        L.stack.splice(L.stack.indexOf(top), 1);
+        L.stolen = { x:L.plat.x + top.off, y:top.y, w:top.w, h:top.h, hue:top.hue, rot:top.rot||0,
+                     fromX:L.plat.x + top.off, fromY:top.y, k:0, thief:f };
+        WB.sfx('steal');
+        break;
+      }
+      case 'plopper': {                                    // a bad cube
+        const size = rand(32, 52);
+        L.plops.push({ x:f.x + dir*10, y:110, w:size, h:size, vx:rand(-0.4,0.4), vy:0.4,
+                       rot:rand(-0.15,0.15), vr:rand(-0.05,0.05), squish:1, hue:WB.BAD_HUE, bad:true });
+        WB.sfx('plop');
+        break;
+      }
+    }
+  }
+  function canAct(f){
+    if(f.kind==='roller' || f.kind==='rotter') return !L.lettuce && L.diarrheaTimer<=0;
+    if(f.kind==='thief') return L.stack.length >= 3 && !L.stolen;
+    return true;
+  }
+
   function updateHazards(){
+    // turf: the wombat may only crawl between the innermost rivals
+    const active = L.foes.filter(f => !f.leaving);
+    L.crawlBound = active.length ? Math.max(70, Math.min(...active.map(f => Math.abs(f.home - W/2))) - 75) : 0;
+
     for(const f of L.foes){
       f.crawl += 0.16; f.wob = Math.sin(f.crawl)*3;
       if(f.blink>0) f.blink--; else if(Math.random()<0.01) f.blink=8;
-      if(f.wind>0){ f.wind--; if(f.wind===0 && !L.lettuce && L.diarrheaTimer<=0){
-          // roll a leaf along the plank toward the wombat
-          const dir = L.wombat.x < f.x ? -1 : 1;
-          L.lettuce = { x:f.x + dir*30, y:topPlat.y-20, vy:0, vx:dir*2.6, landed:true, wob:0, eatScale:1 };
-        } }
-      else if(t >= f.throwT){
-        f.throwT = t + rand(360, 620);
-        if(!L.lettuce && L.diarrheaTimer<=0) f.wind = 26;      // wind-up before the roll
+      if(f.leaving){ f.x += f.leaveDir*5; f.face = f.leaveDir; continue; }
+      if(f.jump > 0 && --f.jump === 0){                   // a Stomper lands
+        L.shake = Math.max(L.shake, 9);
+        if(L.stack.length) L.pileSwayV += (Math.random() < 0.5 ? -1 : 1) * 0.015;
+        for(let k=0;k<8;k++) L.particles.push(WB.puff(f.x + rand(-20,20), topPlat.y - 8, '#c9a77a'));
+        WB.sfx('stomp');
+      }
+      if(f.walk === 'go'){                                 // a Bully on the way over
+        const dx = L.wombat.x - f.x;
+        f.x += Math.sign(dx)*3; f.face = Math.sign(dx);
+        if(Math.abs(dx) < 70){ L.wombat.shoveV = Math.sign(dx || 1)*9; f.walk = 'back'; WB.sfx('stomp'); }
+        continue;
+      }
+      if(f.walk === 'back'){
+        const dx = f.home - f.x;
+        f.x += Math.sign(dx)*Math.min(2.5, Math.abs(dx)); f.face = Math.sign(dx);
+        if(Math.abs(dx) < 1) f.walk = null;
+        continue;
+      }
+      if(f.wind > 0){ if(--f.wind === 0) act(f); }
+      else if(t >= f.next){
+        const K = RIVAL_KINDS[f.kind];
+        f.next = t + rand(K.every[0], K.every[1]);
+        if(canAct(f)){ f.windMax = f.kind==='rotter' ? 12 : 26; f.wind = f.windMax; }   // wind-up first
       }
       f.face += ((L.wombat.x > f.x ? 1 : -1) - f.face) * 0.08;
     }
+    L.foes = L.foes.filter(f => !f.leaving || (f.x > -90 && f.x < W+90));
+
+    // a Bully's shove slides the wombat along the plank
+    const wb = L.wombat;
+    if(wb.shoveV){
+      wb.x += wb.shoveV; wb.shoveV *= 0.85;
+      if(Math.abs(wb.shoveV) < 0.3) wb.shoveV = 0;
+      const bound = L.crawlBound || (topPlat.w/2 - 40);
+      wb.x = clamp(wb.x, W/2 - bound, W/2 + bound);
+    }
+
+    // a Lobber's leaf: catch it on the platform or stack to snatch it
+    for(let i=L.lobs.length-1;i>=0;i--){
+      const g = L.lobs[i];
+      g.vy += 0.236; g.x += g.vx; g.y += g.vy; g.rot += 0.08;
+      if(g.vy > 0){
+        const top = WB.supportHeightAt(L, g.x);
+        if(isFinite(top) && g.y + 9 >= top && g.y - 9 < top + 24){
+          L.lobs.splice(i,1); L.nuts += 3;
+          for(let k=0;k<8;k++) L.particles.push({ x:g.x + rand(-10,10), y:top + rand(-6,6), vx:rand(-3,3), vy:rand(-4,-1),
+            life:rand(14,24), max:24, r:rand(2,4), color:'#7cc743', kind:'splat', g:.25 });
+          WB.sfx('crunch');
+          evict(g.owner, 'storms off: lettuce snatched, +3 Gum Nuts');
+          continue;
+        }
+      }
+      if(g.y > H - 64){
+        for(let k=0;k<6;k++) L.particles.push({ x:g.x + rand(-8,8), y:H-70, vx:rand(-2,2), vy:rand(-3,-1),
+          life:rand(12,22), max:22, r:rand(2,4), color:'#6cbf38', kind:'splat', g:.25 });
+        L.lobs.splice(i,1);
+      }
+    }
+
+    // a Thief carries its prize up, then flings it away
+    if(L.stolen){
+      const s = L.stolen; s.k += 1/40;
+      if(s.k < 1){
+        const e = s.k, tx = s.thief.x, ty = 40;
+        s.x = s.fromX + (tx - s.fromX)*e; s.y = s.fromY + (ty - s.fromY)*e - Math.sin(e*Math.PI)*80; s.rot += 0.1;
+      } else { s.x += (s.thief.home < W/2 ? -1 : 1)*14; s.y -= 3; s.rot += 0.3; }
+      if(s.x < -80 || s.x > W + 80) L.stolen = null;
+    }
+
+    // a caught bad cube rots into a puddle a couple of seconds later
+    for(const c of L.stack) if(c.rotT && !c.melting && !c.melted && --c.rotT <= 0) WB.meltCube(L, c);
+
     WB.updateLettuceAndDiarrhea(L, t);
   }
 
@@ -405,8 +551,11 @@
     if(L.extendT > 0 && --L.extendT === 0) WB.setPlatBonus(L, 0);
     if(!L.result && L.stack.length && WB.stackTopWorldY(L) <= L.goalY){
       L.stacksDone++; L.banking=40;
+      const notes = [];
       L.nuts += 5;                                   // a finished stack, and more if it never got wobbly
-      if(L.stackMaxRatio < 0.8){ L.nuts += 10; showToast('✨ Clean stack! +10 Gum Nuts'); }
+      if(L.stackMaxRatio < 0.8){ L.nuts += 10; notes.push('✨ Clean stack! +10 Gum Nuts'); }
+      notes.push(evict(L.foes.find(f => !f.leaving), 'runs off', true));   // a finished stack scares one rival away
+      if(notes.some(Boolean)) showToast(notes.filter(Boolean).join('   ·   '));
       L.stackMaxRatio = 0;
       if(L.M.extendo){ WB.setPlatBonus(L, 20); L.extendT = 300; }
       WB.sfx('levelup'); tutorialDone();
@@ -568,7 +717,7 @@
      '💗 Woo mates → charm and a buff.',
      '😤 Out-stack rivals → drive them back.',
      'Rivals march on your burrow — each on its own schedule.',
-     'Let one reach you and it will roll lettuce at your wombat!'
+     'Let one reach you and it joins you on the plank to cause trouble!'
     ].forEach((l,i)=> ctx.fillText(l, W/2, 235+i*34));
     if(pendingSave){
       drawButton(BTN_CONTINUE, '▶ Continue — Day '+pendingSave.player.day, '#7bed9f', '#14532d');
@@ -673,7 +822,7 @@
     ctx.font='bold 16px "Comic Neue", "Comic Sans MS", cursive'; ctx.textAlign='center';
     ctx.fillText((isRival?'😤 ':'💗 ')+n.name, n.x, n.y+46);
     ctx.fillStyle='#333'; ctx.font='13px "Comic Neue", "Comic Sans MS", cursive';
-    ctx.fillText(n.stacks+'× stack of '+n.target, n.x, n.y+62);
+    ctx.fillText((isRival ? RIVAL_KINDS[kindOf(n)].icon+' '+RIVAL_KINDS[kindOf(n)].name+' · ' : '')+n.stacks+'× stack of '+n.target, n.x, n.y+62);
     if(isRival && n.invader){
       ctx.fillStyle='#c0392b'; ctx.font='bold 13px "Comic Neue", "Comic Sans MS", cursive';
       ctx.fillText('⚠ IN YOUR TERRITORY', n.x, n.y+78);
@@ -754,49 +903,54 @@
 
     drawTopPlat(0);
 
-    // invading rivals up on the plank with your wombat
+    // invading rivals up on the plank with your wombat, each wearing its personality
     for(const f of L.foes){
-      const windUp = f.wind>0 ? Math.sin((26-f.wind)/26*Math.PI)*10 : 0;
-      drawWombatArt({ x:f.x, y:70, face:f.face, strain:0, crawl:f.crawl, wob:f.wob-windUp,
+      const K = RIVAL_KINDS[f.kind];
+      const windUp = f.wind>0 ? Math.sin((f.windMax-f.wind)/f.windMax*Math.PI)*10 : 0;
+      const hopY = f.jump>0 ? Math.sin((1 - f.jump/30)*Math.PI)*30 : 0;
+      drawWombatArt({ x:f.x, y:70 - hopY, face:f.face, strain:0, crawl:f.crawl, wob:f.wob-windUp,
         mode:'crawl', timer:0, blink:f.blink }, 0.8, PAL_RIVAL, { angry:true });
-      if(f.wind>0){
-        ctx.fillStyle='#3f8f3a'; ctx.font='bold 22px "Comic Neue", "Comic Sans MS", cursive'; ctx.textAlign='center';
-        ctx.fillText('🥬', f.x + (L.wombat.x<f.x?-34:34), 40);
-        ctx.textAlign='left';
-      }
+      ctx.font='20px serif'; ctx.textAlign='center';
+      ctx.fillText(K.icon, f.x + 34, 30 - hopY);
+      if(f.wind>0) ctx.fillText(f.kind==='plopper' ? '💢' : f.kind==='thief' ? '🖐' : K.icon, f.x + (L.wombat.x<f.x?-38:38), 44);
+      ctx.textAlign='left';
     }
+    for(const g of L.lobs) drawLettuce({ x:g.x, y:g.y, wob:0, eatScale:1, roll:g.rot }, 0);
+    if(L.stolen) drawPoop(L.stolen.x, L.stolen.y, L.stolen.w, L.stolen.h, L.stolen.rot, 1, L.stolen.hue);
     drawLettuce(L.lettuce, 0);
     drawWombatArt(L.wombat, 1, PAL_PLAYER, {});
     drawParticles(L.particles);
 
     ctx.restore();
 
-    // HUD, on soft panels so the wombat can crawl under them
+    // HUD, in the grass strip at the bottom: the top of the screen belongs to
+    // your wombat and any rivals on the plank (each wears its personality icon)
     const who = (L.node.type==='mate'?'💗 Impress ':'😤 Out-stack ')+L.node.name;
-    const heckle = L.foes.length ? '⚠ '+L.foes.map(f=>f.name).join(' & ')+' heckling you with lettuce!' : '';
-    ctx.font='bold 14px "Comic Neue", "Comic Sans MS", cursive'; const heckleW = ctx.measureText(heckle).width;
-    ctx.font='bold 25px "Comic Neue", "Comic Sans MS", cursive';
     const tall = Math.round((WB.platTop(L)-WB.stackTopWorldY(L))/42);
     const stackTxt = 'stack '+Math.min(L.stacksDone+1,L.stacksNeeded)+' / '+L.stacksNeeded+'   ·   height '+tall+' / '+L.target;
-    ctx.font='17px "Comic Neue", "Comic Sans MS", cursive'; const stackW = ctx.measureText(stackTxt).width + 70;  // + the Gum Nut counter
-    ctx.font='bold 25px "Comic Neue", "Comic Sans MS", cursive';
-    const panelW = Math.max(ctx.measureText(who).width, heckleW, stackW, 250) + 24;
-    ctx.fillStyle='rgba(255,255,255,.72)'; ctx.strokeStyle='rgba(42,28,18,.3)'; ctx.lineWidth=2;
-    roundRect(6, 8, panelW, L.foes.length ? 88 : 66, 14); ctx.fill(); ctx.stroke();
-    roundRect(W-118, 8, 110, 50, 14); ctx.fill(); ctx.stroke();
-    ctx.fillStyle='#2d5016'; ctx.textAlign='left';
-    ctx.fillText(who, 16, 38);
-    ctx.font='17px "Comic Neue", "Comic Sans MS", cursive';
-    ctx.fillText(stackTxt, 16, 62);
+    const hudText = (txt, x, y, font, align) => {
+      ctx.font = font; ctx.textAlign = align || 'left';
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(30,50,15,.85)'; ctx.lineJoin = 'round';
+      ctx.strokeText(txt, x, y); ctx.fillStyle = '#fff'; ctx.fillText(txt, x, y);
+    };
+    hudText(who, 16, H-36, 'bold 22px "Comic Neue", "Comic Sans MS", cursive');
+    hudText(stackTxt, 16, H-11, 'bold 17px "Comic Neue", "Comic Sans MS", cursive');
     const nx = 16 + ctx.measureText(stackTxt).width + 22;
-    drawGumNut(nx, 57, 18);
-    ctx.fillStyle='#7a4a1c'; ctx.font='bold 17px "Comic Neue", "Comic Sans MS", cursive'; ctx.fillText(String(L.nuts), nx + 12, 62);
-    ctx.fillStyle='#2d5016';
-    if(L.foes.length){ ctx.fillStyle='#c0392b'; ctx.font='bold 14px "Comic Neue", "Comic Sans MS", cursive';
-      ctx.fillText(heckle, 16, 84); }
+    drawGumNut(nx, H-16, 18);
+    hudText(String(L.nuts), nx + 12, H-11, 'bold 17px "Comic Neue", "Comic Sans MS", cursive');
     ctx.textAlign='right'; ctx.font='24px serif';
     let s2=''; for(let i=0;i<L.maxMiss;i++) s2 += i<L.maxMiss-L.misses ? '🧻' : '❌';
-    ctx.fillText(s2, W-14, 44); ctx.textAlign='left';
+    ctx.fillText(s2, W-14, H-30); ctx.textAlign='left';
+
+    // messages during the level (clean stack, a rival running off, upgrades kicking in)
+    if(toast){
+      ctx.globalAlpha = clamp(toast.life/40,0,1);
+      ctx.font='bold 16px "Comic Neue", "Comic Sans MS", cursive';
+      const tw = Math.min(W-40, ctx.measureText(toast.text).width + 36);
+      ctx.fillStyle='rgba(0,0,0,.72)'; roundRect(W/2 - tw/2, 168, tw, 40, 12); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.fillText(toast.text, W/2, 194);
+      ctx.globalAlpha=1; ctx.textAlign='left';
+    }
 
     if(L.banking>0){
       ctx.textAlign='center'; ctx.fillStyle='#2d5016'; ctx.font='bold 40px "Comic Neue", "Comic Sans MS", cursive';
