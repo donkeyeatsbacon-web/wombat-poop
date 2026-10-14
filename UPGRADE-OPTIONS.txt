@@ -337,7 +337,85 @@ DECISIONS MADE SO FAR (2026-10-13)
       (E3), and a mate can shoo them (E4, the Bouncer perk).
     - Rival poop (the Plopper's "bad cubes") is in.
 
-  Still open: everything from question 4 on (below).
+  Mates:
+    - One mate comes along per level (picked before the level). More seats
+      are bought by upgrading the burrow in the workshop.
+    - Each mate's perk is fixed by her personality (2B a).
+    - All six personalities in 2C stay, plus six more (2F below).
+    - She sits on the plank beside your wombat.
+
+  Seasons:
+    - 100 charm wins the first season. Each new season needs more (say
+      100, 130, 160, ...), and rivals march a little faster each season.
+
+  Currency and shop:
+    - Called Gum Nuts. Earned from every bonus in 3B except a daily bonus:
+      1 per poop stacked, +5 per stack banked / level climbed, +10 per
+      clean stack, +15 per rival beaten, +10 per mate wooed, golden poops.
+    - Spent in a Workshop reached from the front page; one wallet shared by
+      both modes.
+    - Endless keeps two top-5 lists: Classic (no upgrades) and Upgraded.
+    - Pace: the first upgrade costs about what one good campaign season
+      earns. Prices to be set by simulating a season.
+
+  Upgrades:
+    - Build the platform (podium) tree first.
+    - Branches lock each other out; swapping costs a fee.
+    - Cosmetics: yes, lots.
+
+  Build order: currency + platform upgrades first.
+
+  Other:
+    - Retreating from a mate costs something too: -6 charm (mirrors the
+      +6 threat for backing down from a rival).
+    - Sound and hints after the playtest: fine as they are.
+
+
+2F. SIX MORE MATE PERSONALITIES (added on request)
+--------------------------------------------------
+Same shape as 2C: tier 1 comes with the mate, tier 2 is a choice of branch.
+
+    DIGGER (forgives misses)
+      T1 Catch Pit: the first poop you miss each level drops into her pit
+         instead of costing toilet paper
+        |- T2a Deep Pit: the pit holds two misses
+        '- T2b Recycler: poops in the pit turn into Gum Nuts (3 each)
+
+    FORAGER (finds Gum Nuts)
+      T1 Nose for Nuts: +1 Gum Nut for every 5 poops stacked
+        |- T2a Golden Nose: golden poops turn up twice as often
+        '- T2b Stash: Gum Nuts from a lost level aren't halved (if losses
+                      halve earnings - see balance)
+
+    NURSE (toilet paper)
+      T1 Spare Roll: +1 toilet paper while she's with you
+        |- T2a Patch-Up: banking a stack gives back one used roll
+        '- T2b Tummy Rub: diarrhea ends the moment it starts melting your
+                          top poop
+
+    SAGE (the campaign map)
+      T1 Reads the Land: rival personalities show on the map before they
+         arrive, so you can plan who to fight
+        |- T2a Scout: see how many days until each rival invades
+        '- T2b Peacemaker: one rival a season turns back instead of
+                           invading
+
+    DRUMMER (rhythm)
+      T1 Beat: a soft drum beat counts in each poop, so you know when it's
+         coming
+        |- T2a Groove: catching a poop on the beat's last tick gives +2 score
+        '- T2b Lullaby: the wombat's pooping slows 15% while she plays
+
+    ACROBAT (the tower)
+      T1 Nimble Catch: when a poop slides off the edge of the stack, she
+         flicks it back once per stack
+        |- T2a Spotter Net: once per level, a toppling tower's top two poops
+        |                   are saved and become a new stack
+        '- T2b Balancing Act: the tower leans 25% less while she's on the
+                              plank
+
+
+Still open: nothing. Next: build currency + the platform tree.
 
 
 7. DECISIONS FOR YOU
