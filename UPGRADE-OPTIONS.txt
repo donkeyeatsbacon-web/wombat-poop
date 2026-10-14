@@ -435,8 +435,30 @@ BUILT: currency + the platform tree (branch gum-nuts, 2026-10-13)
     Super Glue is now "the 45% overhang works on top of other poops too",
     and Catapult hops edge-landers toward the middle.
 
-Next slices (section 6): rival personalities on the plank, then mates who
-join you, then the wombat tree and cosmetics.
+BUILT: rival personalities on the plank (branch rivals, 2026-10-13)
+-------------------------------------------------------------------
+  - All seven personalities, shown on map markers and on the plank:
+      Roller  - rolls lettuce (as before)
+      Lobber  - lobs lettuce down the field; catch it on the platform or
+                stack for +3 Gum Nuts, and the Lobber leaves the level
+      Rotter  - rotten lettuce, shorter wind-up, 1.5x diarrhea
+      Bully   - walks over and shoves your wombat along the plank
+      Stomper - jumps and stomps: screen shake and a kick to the wobble
+      Thief   - with 3+ poops stacked, snatches the top one away (no miss)
+      Plopper - drops dark bad cubes: no cost if dodged; a caught one rots
+                into a puddle 2.5 s later
+  - Turf: invaders claim the plank ends; 1-2 leave the wombat ~2/3 of its
+    crawl room, 3-4 about a third.
+  - Eviction: out-stack them on the map (as before), finish a stack to
+    scare one off for the level, or catch a Lobber's lettuce. (The Bouncer
+    mate comes with the mates slice.)
+  - Escalation: season starts with Rollers and Lobbers; Rotters and Bullies
+    join from the 2nd "wave" of newcomers, everything from the 3rd.
+  - Campaign level HUD moved to the grass strip at the bottom, so the
+    plank and its rivals are unobstructed; in-level messages now show.
+
+Next slices (section 6): mates who join you, then the wombat tree and
+cosmetics.
 
 
 7. DECISIONS FOR YOU

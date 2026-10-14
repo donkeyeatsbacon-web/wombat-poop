@@ -28,6 +28,9 @@
   // About 1 poop in 32 comes out golden (worth Gum Nuts). It's decided by the
   // poop's random colour shade, so no extra random number is drawn.
   WB.isGolden = hue => hue > 7.5;
+  // A rival Plopper's "bad" cubes carry this colour shade instead (see art.js).
+  WB.BAD_HUE = -99;
+  WB.isBad = hue => hue <= -50;
 
   WB.rand  = (a,b) => a + Math.random()*(b-a);
   WB.clamp = (v,a,b) => v<a?a:v>b?b:v;

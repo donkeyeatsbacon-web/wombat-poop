@@ -43,7 +43,7 @@
         wombat.crawl += 0.18;
         wombat.wob = Math.sin(wombat.crawl) * 4;
         wombat.x += wombat.dir * 1.6;
-        const bound = topPlat.w/2 - 40;
+        const bound = S.crawlBound || (topPlat.w/2 - 40);   // rivals on the plank can pen it in
         if(wombat.x < W/2 - bound){ wombat.x = W/2 - bound; wombat.dir = 1; }
         if(wombat.x > W/2 + bound){ wombat.x = W/2 + bound; wombat.dir = -1; }
         if(Math.random() < 0.008) wombat.dir *= -1;
@@ -89,8 +89,9 @@
         }
       }
       if(wombat.timer > 42){
+        const rotten = S.lettuce && S.lettuce.rotten;  // a Rotter's lettuce hits harder
         S.lettuce = null;
-        S.diarrheaTimer = 210; S.diarrheaSpawn = t;   // uh oh — a few seconds of the runs
+        S.diarrheaTimer = rotten ? 315 : 210; S.diarrheaSpawn = t;   // uh oh — a few seconds of the runs
         S.diarrheaX = wombat.x;                       // it drips from right here for the duration
         S.nextSpawn = t + 1e9;                        // no normal poops meanwhile
         WB.sfx('gurgle');

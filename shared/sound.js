@@ -133,6 +133,10 @@
       [[523,0.12],[659,0.12],[784,0.12],[1047,0.4]].forEach(([f,d], i) =>
         tone(f, d, { type:'triangle', vol:0.22, delay:i*0.11 }));
     },
+    // a rival stomping the plank
+    stomp(){ tone(80, 0.3, { to:38, vol:0.45 }); noise(0.2, { freq:400, to:90, vol:0.35 }); },
+    // a rival snatching a poop
+    steal(){ tone(500, 0.18, { type:'triangle', to:1200, vol:0.14 }); noise(0.08, { filter:'highpass', freq:3000, vol:0.1, delay:0.05 }); },
     // UI button
     click(){ tone(880, 0.05, { type:'square', vol:0.12, lowpass:3000 }); },
   };

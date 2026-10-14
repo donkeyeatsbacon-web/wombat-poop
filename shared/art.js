@@ -48,12 +48,20 @@
       ctx.translate(x,y);
       ctx.rotate(rot||0);
       const bw = w, bh = h*(squish||1), r = Math.min(bw,bh)*0.28, hh = 28+(hue||0);
-      const gold = WB.isGolden(hue||0);
-      ctx.fillStyle = gold ? '#f2c230' : `hsl(${hh}, 52%, 37%)`;
+      const gold = WB.isGolden(hue||0), bad = WB.isBad(hue||0);
+      ctx.fillStyle = gold ? '#f2c230' : bad ? '#5d6b45' : `hsl(${hh}, 52%, 37%)`;
       roundRect(-bw/2, -bh/2, bw, bh, r); ctx.fill();
       ctx.save(); ctx.clip();
-      ctx.fillStyle = gold ? '#cf9418' : `hsl(${hh}, 55%, 27%)`; ctx.fillRect(-bw/2, bh*0.16, bw, bh);
+      ctx.fillStyle = gold ? '#cf9418' : bad ? '#434e30' : `hsl(${hh}, 55%, 27%)`; ctx.fillRect(-bw/2, bh*0.16, bw, bh);
       ctx.restore();
+      if(bad){                                    // a rival's bad cube: a sickly green with stink lines
+        ctx.strokeStyle = 'rgba(160,190,90,.8)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        const wv = Math.sin(now()*0.2 + x*0.1)*2;
+        for(const k of [-1, 1]){
+          ctx.beginPath(); ctx.moveTo(k*bw*0.18, -bh/2 - 4);
+          ctx.quadraticCurveTo(k*bw*0.18 + 5 + wv, -bh/2 - 10, k*bw*0.18, -bh/2 - 16); ctx.stroke();
+        }
+      }
       ctx.fillStyle = gold ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.45)';
       ell(-bw*0.2, -bh*0.24, bw*0.17, bh*0.09, -0.4); ctx.fill();
       if(gold){                                   // a four-point twinkle that pulses
@@ -313,13 +321,15 @@
       ctx.rotate(lettuce.roll||0);
       ctx.scale(sc, sc);
       ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
-      // ruffled leaf: the outer ring outlined, the heart drawn over it
+      // ruffled leaf: the outer ring outlined, the heart drawn over it (a Rotter's is brown and spotty)
+      const leaf = lettuce.rotten ? '#8a9a3a' : '#6cbf38', heart = lettuce.rotten ? '#b8b860' : '#b2e875';
       for(let i=0;i<6;i++){
         const a = i/6*Math.PI*2;
-        ell(Math.cos(a)*7, Math.sin(a)*5, 9, 7, a); inked('#6cbf38');
+        ell(Math.cos(a)*7, Math.sin(a)*5, 9, 7, a); inked(leaf);
       }
-      ctx.fillStyle = '#6cbf38'; ell(0, 0, 11, 9); ctx.fill();
-      ell(0, -1, 8, 7); inked('#b2e875');
+      ctx.fillStyle = leaf; ell(0, 0, 11, 9); ctx.fill();
+      ell(0, -1, 8, 7); inked(heart);
+      if(lettuce.rotten){ ctx.fillStyle = '#6b4a1c'; ell(-4, 2, 2, 1.6); ctx.fill(); ell(3, -3, 1.6, 1.3); ctx.fill(); ell(6, 4, 1.8, 1.4); ctx.fill(); }
       ctx.strokeStyle = '#3f7d1e'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(0,-5); ctx.lineTo(0,5); ctx.stroke();
       ctx.restore();
