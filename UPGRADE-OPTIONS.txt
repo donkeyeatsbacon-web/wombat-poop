@@ -1,0 +1,340 @@
+COMBAT WOMBAT - UPGRADE & PROGRESSION OPTIONS
+=============================================
+Written 2026-10-13. A menu of branching design options for four ideas:
+
+  1. Rivals who make it into your territory join you on the plank
+  2. Mates you woo join you and give perks
+  3. An in-game currency
+  4. Upgrades you buy for the wombat and the catch platform ("podium")
+
+Each section offers a few directions (A, B, C...) and, where it fits, a
+branching tree of upgrades. Pick per section; the last part shows how the
+pieces combine and suggests a first slice to build.
+
+Numbers in [brackets] are what the game uses today, so every upgrade below
+maps onto something real in the code.
+
+
+0. WHAT THE GAME ALREADY HAS (so the options build on it)
+---------------------------------------------------------
+
+- Rivals on the plank: in a campaign level, every rival that has reached
+  your territory already stands on the top plank and rolls lettuce at your
+  wombat every 6-10 s. Eating lettuce gives it 3.5 s of diarrhea [210
+  frames], which melts poops and shrinks your platform by 30 px a drop
+  [up to 90 px, recovering after 30 s].
+- Mates: wooing one gives +22 charm and a random buff; she then leaves and
+  a newcomer takes her spot. Nobody stays with you.
+- Buffs/debuffs (campaign only): wider/narrower platform [+/-40 px on 150],
+  slower/faster falling poops [x0.7 / x1.4], +/-1 toilet paper [3], steadier/
+  dizzier tower [topple margin 30 px, +22 / -18].
+- Things an upgrade can turn: platform width [150 px] and steering
+  [9 px/frame on keys, 35% easing to the pointer], toilet paper [3 misses],
+  fall speed [gravity 0.16, cap 11 in the campaign], poop sizes [30-78 px],
+  poop rhythm [one every ~1.2-2.5 s, faster as score climbs], wobble
+  settings [push, jitter, pull upright, damping], topple margin, lettuce
+  rate, diarrhea length and damage, score per poop [width / 12].
+
+
+1. RIVALS WHO JOIN YOU ON THE PLANK
+-----------------------------------
+
+The core idea: an invader isn't just a map marker, it's a bad houseguest who
+shows up in your levels until you get rid of it. Today they only roll
+lettuce. Options to deepen that, roughly in order of how much they change the
+game:
+
+  1A. HECKLERS, EXPANDED (smallest change)
+      Keep lettuce as their weapon, but give each rival a personality that
+      changes how they throw it:
+        - Roller   - rolls lettuce along the plank (what exists today)
+        - Lobber   - throws it in an arc; you can catch it on the platform
+                     to deny it (it lands as a harmless leaf)
+        - Rotter   - rotten lettuce: shorter warning, longer diarrhea
+        - Bully    - shoves your wombat along the plank, so poops drop
+                     somewhere you didn't expect
+      Rival personality shows on the map marker, so choosing who to fight
+      first becomes a decision.
+
+  1B. SABOTEURS (medium)
+      Rivals mess with the tower, not just your wombat:
+        - Stomper  - jumps on the plank every so often; the shake adds a
+                     wobble kick to your pile
+        - Thief    - snatches the top poop of your stack and throws it away
+                     (no miss counted, but height lost)
+        - Plopper  - poops too: dark "rival cubes" that are heavier or
+                     slipperier and score nothing. Catch them and they spoil
+                     the stack; dodge them and they don't cost toilet paper.
+      This is where "rival poop" lives if you like that joke.
+
+  1C. TURF WAR FOR THE PLANK (biggest)
+      Each invader takes up a stretch of the plank, so your wombat has less
+      room to crawl and its poops come from a narrower band. With three
+      invaders the wombat is penned into the middle. Pairs naturally with
+      ways to evict them (below).
+
+  HOW YOU GET RID OF THEM (pick one or more)
+    E1. Out-stack them on the map, as today; they go back to their spot.
+    E2. Every stack you bank in a level scares one invader off the plank
+        for that level (instant, satisfying feedback).
+    E3. Catch the lettuce they throw (with 1A's Lobber, or a podium
+        upgrade, see 4) and they stomp off in a huff.
+    E4. Mates can shoo them (see 2, "Bouncer" perk).
+
+  ESCALATION: as now, each invader adds threat every day; options 1A-1C
+  make that threat visible in the levels too, so letting rivals in hurts
+  twice.
+
+  RECOMMENDED: 1A + E2. It reuses everything that exists, adds variety
+  cheaply, and gives you a way to fight back mid-level. Add 1B's Plopper
+  later if you want rival poop.
+
+
+2. MATES WHO JOIN YOU (perks)
+-----------------------------
+
+The core idea: a wooed mate moves into your burrow and comes along to your
+levels, sitting on the plank or under the platform, each helping in her own
+way. You build a small household over a season.
+
+  2A. HOW MANY CAN COME ALONG?
+        a) All of them (simple; power grows all season)
+        b) Pick 1-2 before each level (a "team" choice each time)
+        c) Room grows: start with 1 seat, earn more seats by upgrading the
+           burrow (ties into currency, see 3)
+      Recommended: (b), starting with 1 seat and going to 2 at some point.
+      Choosing who to bring is a fun small decision and keeps power in check.
+
+  2B. HOW SHE GETS HER PERK
+        a) Each mate has a fixed perk tied to her name/personality
+        b) When you woo her, you pick 1 of 2-3 perks (a roguelike "draft")
+        c) Each mate has a small 2-branch tree; wooing her again later
+           (or spending currency) unlocks the next step
+      Recommended: (a) to start, (c) once it's working.
+
+  2C. THE PERK CATALOGUE - six personalities, each a 2-branch tree.
+      Tier 1 comes with the mate; tier 2 lets you pick one branch.
+
+    GARDENER (deals with lettuce)
+      T1 Snack Taker: eats the next lettuce before your wombat does (once per
+         level)
+        |- T2a Iron Gut: every lettuce gives only half-length diarrhea
+        '- T2b Composter: lettuce she eats drops a free poop on your stack
+
+    BUILDER (helps the podium)
+      T1 Extra Plank: platform +20 px wider [150 -> 170]
+        |- T2a Railings: low rails on the platform ends stop a poop sliding
+        |                off once per stack
+        '- T2b Quick Fix: a shrunken platform (diarrhea) recovers in 10 s,
+                          not 30
+
+    LOOKOUT (helps you aim)
+      T1 Spotter: a shadow on the ground shows where the next poop will land
+        |- T2a Early Call: you see where the next 2 poops will land
+        '- T2b Slow-Mo: the first poop of each stack falls at half speed
+
+    STEADY (helps the tower)
+      T1 Steady Paws: tower wobble damps faster [damping .92 -> .89]
+        |- T2a Brace: topple margin +15 px
+        '- T2b Second Chance: once per level, a tower about to topple
+                              straightens up instead (with a big wobble-save
+                              animation)
+
+    CHARMER (economy and campaign)
+      T1 Sweet Talk: +25% currency from levels
+        |- T2a Matchmaker: mates on the map wander off more slowly
+        '- T2b Fan Club: +5 charm whenever you win against a rival
+
+    BOUNCER (deals with rivals)
+      T1 Glare: invaders throw lettuce 50% less often
+        |- T2a Escort: one invader leaves your plank at the start of each
+        |              level
+        '- T2b Payback: when you bank a stack, an invader loses its nerve
+                        and drops threat by 5
+
+  2D. MATE SEAT / PLACEMENT
+      Mates could sit (i) on the plank next to your wombat (simple, visible),
+      or (ii) on the ground near the catch platform cheering you on (frees
+      plank room, good with 1C turf war). Either way they animate and react:
+      cheer on a banked stack, gasp at a topple.
+
+  2E. WHAT HAPPENS TO CHARM?
+      Today charm wins the season. Options: keep that, and a mate joining is
+      a bonus on top; or the season goal becomes "build a household of N
+      mates and get threat below X". Recommended: keep charm as is to begin.
+
+
+3. CURRENCY
+-----------
+
+  3A. WHAT IS IT CALLED / WHAT IS IT?
+        a) Gum Nuts - Australian bush flavour, drawn as small gumnut icons
+        b) Clover - what wombats actually like to eat
+        c) Golden Poops - on-brand silly; rare shiny poops worth more
+      Recommended: (a) Gum Nuts, with (c) as a bonus: now and then the
+      wombat poops a golden cube worth 5 gum nuts if you stack it.
+
+  3B. HOW YOU EARN IT
+      Base: 1 per poop stacked. Bonuses, choose any:
+        - +5 per stack banked (campaign) / per level climbed (endless)
+        - +10 for a stack with no wobble warnings ("clean stack")
+        - +15 for beating a rival, +10 for wooing a mate
+        - Golden poops (3A c)
+        - Daily first-play bonus (light; avoid nagging)
+      Target pace: a decent 3-minute run earns ~40-60, so the first upgrade
+      (~50) comes after the first good run.
+
+  3C. WHERE YOU SPEND IT
+        a) A "Burrow Workshop" screen on the front page (both modes)
+        b) Between days on the campaign map only
+        c) Both
+      Recommended: (a). One shop, one wallet shared by both modes.
+
+  3D. ENDLESS MODE AND FAIRNESS
+      Upgrades make high scores easier. Options:
+        a) Upgrades apply everywhere; scores just go up (simplest)
+        b) Endless has "Classic" (no upgrades, its own top 5) and
+           "Upgraded" (separate top 5)
+        c) Upgrades are campaign-only; endless earns currency but plays
+           stock
+      Recommended: (b) if high scores matter to you, otherwise (a).
+
+
+4. UPGRADE TREES: WOMBAT AND PODIUM
+-----------------------------------
+
+Each tree has three tiers. Tier 1 is a straight upgrade. At tiers 2 and 3
+you pick one of two branches; the other is locked unless you "respec"
+(refund for a fee), so each player's setup ends up a bit different. Costs are
+suggestions in gum nuts.
+
+  4A. THE PODIUM (the catch platform)
+
+    WIDTH                                        [150 px]
+      T1 Long Board   +15 px                                      50
+        |- T2a Wide Load    +25 px more (190 total), but steers 15%
+        |                   slower                               120
+        |    '- T3a Extendo   ends fold out +20 px for 5 s after
+        |                      each banked stack                  250
+        '- T2b Nimble Board +15% steering speed, no extra width   120
+             '- T3b Dash      double-tap a direction for a quick
+                               dodge                              250
+
+    GRIP (what happens when a poop lands)
+      T1 Felt Top     poops slide less after landing              50
+        |- T2a Sticky Pad   a poop that lands mostly on the board
+        |                   never slides off                     120
+        |    '- T3a Super Glue  the bottom layer can't topple out  250
+        '- T2b Springs      poops bounce lightly and centre
+                            themselves                           120
+             '- T3b Catapult  a poop landing near the edge hops
+                               toward the middle                  250
+
+    STABILITY (the wobble)
+      T1 Gyro         topple margin +8 px                         60
+        |- T2a Heavy Base  wobble damps faster, tower leans less 140
+        |    '- T3a Anchor    once per level, auto-catch a topple
+        |                      (like the Steady mate's T2b)       300
+        '- T2b Shock Pole  shake from lettuce/diarrhea/stompers
+                           doesn't add wobble                    140
+             '- T3b Balance Lamp  the wobble meter warns 1 s
+                                   earlier with a flashing guide  300
+
+    PROTECTION (hazards)
+      T1 Awning       diarrhea that hits the board shrinks it 15 px,
+                      not 30                                      60
+        |- T2a Umbrella   the top poop of the stack is immune to
+        |                 melting                                140
+        '- T2b Gutter     drops that hit the board are caught and
+                          earn 1 gum nut each                    140
+
+  4B. THE WOMBAT (the pooper)
+      The player steers the platform, not the wombat, so wombat upgrades
+      change the poops it gives you - the "supply side".
+
+    DIET (poop shape and size)                    [30-78 px, random]
+      T1 Fibre Diet   poop sizes range 36-70 (fewer tiny and huge)  50
+        |- T2a Bricklayer  poops come out squarer and flatter: more
+        |                  stable stacks, slightly less score       120
+        |    '- T3a Mega Cube  every 10th poop is extra-wide and
+        |                       flat: a perfect foundation          250
+        '- T2b Big Eater    poops run larger: more score per poop,
+                            harder to balance                    120
+             '- T3b Golden Belly  golden poops (5 gum nuts) 3x as
+                                   often                          250
+
+    AIM (where poops come from)
+      T1 Steady Walker  the wombat changes direction less often   50
+        |- T2a Centre Line  the wombat drifts toward the middle of the
+        |                   plank before it pushes                120
+        '- T2b Telegraph    its strain lasts longer, so you get more
+                            warning before each poop             120
+
+    TUMMY (lettuce and diarrhea)               [3.5 s diarrhea]
+      T1 Tough Tummy  diarrhea lasts 2.5 s                        60
+        |- T2a Picky Eater  the wombat ignores 1 lettuce in 3     140
+        '- T2b Fertiliser   while it has diarrhea, catching drops
+                            on the podium scores points instead of
+                            shrinking it                         140
+
+    RHYTHM (how fast poops come)
+      T1 Regular       poops come at an even pace (less random)   50
+        |- T2a Slow Burn   endless speeds up 30% more slowly      120
+        '- T2b Rapid Fire  poops come 15% faster, but each is worth
+                           +50% score                           120
+
+  4C. COSMETICS (an optional sink for spare gum nuts)
+      Headband colours, a party-hat or crown, platform paint, a trail of
+      sparkles on golden poops. Pure looks, no effect. Cheap to make in the
+      code-drawn art style.
+
+
+5. HOW THE PIECES FIT TOGETHER
+------------------------------
+
+  Campaign day loop with everything in:
+    map -> pick a wombat to visit -> choose which mate(s) come along
+    -> level (rivals on the plank harass you; mates help; earn gum nuts)
+    -> result -> day passes -> spend gum nuts in the workshop -> map
+
+  Endless loop:
+    front page -> workshop (optional) -> endless run (earn gum nuts)
+    -> top 5 -> workshop
+
+  Two dials to keep the game from getting too easy:
+    - Rivals scale up through the season (more invaders, nastier
+      personalities), so your growing household and upgrades are needed.
+    - Upgrade prices rise per tier, and branches lock each other out, so no
+      one maxes everything.
+
+
+6. A FIRST SLICE TO BUILD (suggested)
+-------------------------------------
+
+  Step 1  Currency + workshop with the PODIUM tree only (4A, tier 1 and 2).
+          Proves the economy and the shop screen.        ~1 sprint
+  Step 2  Rival personalities on the plank (1A) + "banking a stack scares
+          one off" (E2).                                 ~1 sprint
+  Step 3  Mates join with fixed perks (2A b, 2B a), 1 seat, 4 of the 6
+          personalities.                                 ~1-2 sprints
+  Step 4  WOMBAT tree (4B), tier 3s, mate perk trees (2B c), cosmetics.
+                                                          ~2 sprints
+
+  Each step is playable on its own, so you can stop or change direction after
+  any of them.
+
+
+7. DECISIONS FOR YOU
+--------------------
+
+  1. Rivals: which of 1A / 1B / 1C, and which ways to evict them?
+  2. Mates: how many come along (2A), and fixed perks or a draft (2B)?
+  3. Currency name and theme (3A)?
+  4. Does the shop live on the front page, the campaign map, or both (3C)?
+  5. Endless fairness: one top 5, two, or no upgrades in endless (3D)?
+  6. Which upgrade trees to start with, and do branches lock each other out
+     (or can players buy both eventually)?
+  7. Cosmetics: yes or no?
+
+  Any perk or upgrade above can be swapped for something you like better;
+  the branch shapes are the point, not the exact list.
