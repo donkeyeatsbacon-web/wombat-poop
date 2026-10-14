@@ -70,18 +70,28 @@
       <div class="what">A season in your territory: woo mates, out-stack rivals.</div>
       <div class="status" id="campaignStatus"></div>
     </a>
+    <a class="mode" href="workshop.html">
+      <div class="name">🔧 Workshop</div>
+      <div class="what">Spend Gum Nuts on upgrades for your catch platform.</div>
+      <div class="status" id="workshopStatus"></div>
+    </a>
   </nav>
 </div>
-<script src="shared/core.js?v=73f95151"></script>
+<script src="shared/core.js?v=6925f7c9"></script>
 <script src="shared/sound.js?v=945a409e"></script>
-<script src="shared/art.js?v=c54f25b5"></script>
+<script src="shared/progress.js?v=f34ccd3e"></script>
+<script src="shared/art.js?v=3c47bc68"></script>
 <script>
 (() => {
   // what's saved, so each mode can say where you're up to
   const read = key => { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch(e){ return null; } };
-  const high = read('wombatPoopHigh');
-  if(high && high.score > 0)
-    document.getElementById('endlessStatus').textContent = '🏆 Best: ' + high.score + (high.name ? ' (' + high.name + ')' : '');
+  const top = key => { const d = read(key); return Array.isArray(d) && d[0] && d[0].score > 0 ? d[0] : null; };
+  const classic = top('wombatPoopScores') || read('wombatPoopHigh'), upgradedBest = top('wombatPoopScoresUp');
+  const bests = [];
+  if(classic && classic.score > 0) bests.push('🏆 Best: ' + classic.score + (classic.name ? ' (' + classic.name + ')' : ''));
+  if(upgradedBest) bests.push('🔧 Upgraded: ' + upgradedBest.score);
+  document.getElementById('endlessStatus').textContent = bests.join('   ·   ');
+  document.getElementById('workshopStatus').textContent = '🌰 ' + WB.progress.nuts().toLocaleString() + ' Gum Nuts';
   const save = read('wombatCampaignSave');
   if(save && save.player && Number.isFinite(save.player.day))
     document.getElementById('campaignStatus').textContent = '▶ Continue — Day ' + save.player.day;

@@ -41,19 +41,29 @@
     // fill the current path, then outline it
     function inked(fill){ ctx.fillStyle = fill; ctx.fill(); ctx.stroke(); }
 
-    // a poop cube: flat fill, a darker lower band, a highlight, and an outline
+    // a poop cube: flat fill, a darker lower band, a highlight, and an outline.
+    // Golden poops (see WB.isGolden) are gold with a twinkle.
     function drawPoop(x,y,w,h,rot,squish,hue){
       ctx.save();
       ctx.translate(x,y);
       ctx.rotate(rot||0);
       const bw = w, bh = h*(squish||1), r = Math.min(bw,bh)*0.28, hh = 28+(hue||0);
-      ctx.fillStyle = `hsl(${hh}, 52%, 37%)`;
+      const gold = WB.isGolden(hue||0);
+      ctx.fillStyle = gold ? '#f2c230' : `hsl(${hh}, 52%, 37%)`;
       roundRect(-bw/2, -bh/2, bw, bh, r); ctx.fill();
       ctx.save(); ctx.clip();
-      ctx.fillStyle = `hsl(${hh}, 55%, 27%)`; ctx.fillRect(-bw/2, bh*0.16, bw, bh);
+      ctx.fillStyle = gold ? '#cf9418' : `hsl(${hh}, 55%, 27%)`; ctx.fillRect(-bw/2, bh*0.16, bw, bh);
       ctx.restore();
-      ctx.fillStyle = 'rgba(255,255,255,.45)';
+      ctx.fillStyle = gold ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.45)';
       ell(-bw*0.2, -bh*0.24, bw*0.17, bh*0.09, -0.4); ctx.fill();
+      if(gold){                                   // a four-point twinkle that pulses
+        const tw = 0.6 + 0.4*Math.sin(now()*0.15 + x*0.05), sz = Math.min(bw, bh)*0.22*tw;
+        ctx.fillStyle = '#fffbe0'; ctx.beginPath();
+        ctx.moveTo(bw*0.18, -bh*0.05 - sz); ctx.lineTo(bw*0.18 + sz*0.3, -bh*0.05); ctx.lineTo(bw*0.18, -bh*0.05 + sz);
+        ctx.lineTo(bw*0.18 - sz*0.3, -bh*0.05); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(bw*0.18 - sz, -bh*0.05); ctx.lineTo(bw*0.18, -bh*0.05 - sz*0.3);
+        ctx.lineTo(bw*0.18 + sz, -bh*0.05); ctx.lineTo(bw*0.18, -bh*0.05 + sz*0.3); ctx.closePath(); ctx.fill();
+      }
       ctx.lineWidth = 3.5; ctx.strokeStyle = INK; ctx.lineJoin = 'round';
       roundRect(-bw/2, -bh/2, bw, bh, r); ctx.stroke();
       ctx.restore();
@@ -429,7 +439,20 @@
       ctx.restore();
     }
 
-    return { roundRect, drawButton, drawRoundButton, drawPoop, drawPuddle, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
+    // a Gum Nut (the currency): a little woody cup with a cap, size ~ its height
+    function drawGumNut(x, y, size){
+      const s = size/24;
+      ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+      ctx.strokeStyle = INK; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(-9, -4); ctx.quadraticCurveTo(-9, 11, 0, 12); ctx.quadraticCurveTo(9, 11, 9, -4); ctx.closePath();
+      inked('#a0672e');
+      ell(0, -5, 10, 4.5); inked('#7a4a1c');
+      ctx.beginPath(); ctx.moveTo(-3, -6); ctx.lineTo(3, -4); ctx.moveTo(3, -6); ctx.lineTo(-3, -4); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.35)'; ell(-4, 3, 2, 4, 0.3); ctx.fill();
+      ctx.restore();
+    }
+
+    return { roundRect, drawButton, drawGumNut, drawRoundButton, drawPoop, drawPuddle, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
              drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine };
   };
 })();

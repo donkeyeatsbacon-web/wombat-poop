@@ -27,10 +27,11 @@
 <body>
 <div id="wrap"><canvas id="game" width="720" height="960"></canvas></div>
 <div id="hint"></div>
-<script src="shared/core.js?v=73f95151"></script>
+<script src="shared/core.js?v=6925f7c9"></script>
 <script src="shared/sound.js?v=945a409e"></script>
-<script src="shared/art.js?v=c54f25b5"></script>
-<script src="shared/physics.js?v=ce40dcd2"></script>
+<script src="shared/progress.js?v=f34ccd3e"></script>
+<script src="shared/art.js?v=3c47bc68"></script>
+<script src="shared/physics.js?v=427372bc"></script>
 <script src="shared/wombat.js?v=4b3f92f6"></script>
 <script>
 (() => {
@@ -39,7 +40,7 @@
   const ctx = cv.getContext('2d');
   const disp = WB.fitDisplay(cv, document.getElementById('wrap'));
   let t = 0;
-  const { roundRect, drawButton, drawRoundButton, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
+  const { roundRect, drawButton, drawRoundButton, drawGumNut, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
           drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine } = WB.createArt(ctx, () => t);
   const { PAL_PLAYER, PAL_RIVAL, PAL_MATE } = WB;
 
@@ -306,14 +307,20 @@
   };
   const hooks = {
     onMiss: () => { if(L.misses>=L.maxMiss && !L.result){ L.result='lose'; L.loseWhy='misses'; L.resultT=0; WB.sfx('sad'); } },
+    // Gum Nuts: 1 per poop stacked, 5 more for a golden one
+    onSettle: p => { L.nuts += 1; if(WB.isGolden(p.hue)){ L.nuts += 5; } },
+    onBoardDrop: () => { if(L.M.gutter) L.nuts += 1; },
     nextPoopAt: t => t + rand(70,150)
   };
 
   function startLevel(node){
     const p = effectiveParams(node.target);
-    L = Object.assign(WB.newRun(t, { platW:p.platW, tune:{ ...TUNE, fallMul:p.fallMul }, hooks }), {
-      node,
-      maxMiss:p.maxMiss, margin:p.margin, target:p.target,
+    const M = WB.progress.mods(true);          // the campaign always uses your Workshop upgrades
+    L = Object.assign(WB.newRun(t, { platW:p.platW + M.widthAdd, tune:WB.progress.tune({ ...TUNE, fallMul:p.fallMul }, M), hooks,
+                                     steerMul:M.steerMul, easeMul:M.easeMul }), {
+      node, M,
+      maxMiss:p.maxMiss, margin:p.margin + M.marginAdd, target:p.target,
+      nuts:0, stackMaxRatio:0, anchorReady:true, slowmoReady:true, slowmoLeft:0, extendT:0,
       goalY:(H-70-13) - (p.target*42),
       stacksNeeded:node.stacks||1, stacksDone:0, banking:0, stars:[],
       result:null, resultT:0,
@@ -385,11 +392,23 @@
     WB.stepPlops(L);
 
     const effOff = WB.updateStack(L, t);
-    if(effOff !== null && Math.abs(effOff) > L.plat.w/2 + L.margin){
-      L.result='lose'; L.loseWhy='topple'; L.resultT=0; L.shake=16; WB.sfx('topple'); startTopple();
+    if(effOff !== null){
+      const edge = L.plat.w/2 + L.margin, ratio = Math.abs(effOff)/edge;
+      L.stackMaxRatio = Math.max(L.stackMaxRatio, ratio);
+      if(L.M.slowmo && L.slowmoReady && ratio > 0.85){ L.slowmoReady = false; L.slowmoLeft = 150; showToast('⏳ Slow-mo!'); }
+      if(ratio > 1){
+        if(L.M.anchor && L.anchorReady){             // the Anchor upgrade catches it once per level
+          L.anchorReady = false; L.pileSway = 0; L.pileSwayV = 0; L.shake = 10; WB.sfx('levelup'); showToast('⚓ Anchor held!');
+        } else { L.result='lose'; L.loseWhy='topple'; L.resultT=0; L.shake=16; WB.sfx('topple'); startTopple(); }
+      }
     }
+    if(L.extendT > 0 && --L.extendT === 0) WB.setPlatBonus(L, 0);
     if(!L.result && L.stack.length && WB.stackTopWorldY(L) <= L.goalY){
       L.stacksDone++; L.banking=40;
+      L.nuts += 5;                                   // a finished stack, and more if it never got wobbly
+      if(L.stackMaxRatio < 0.8){ L.nuts += 10; showToast('✨ Clean stack! +10 Gum Nuts'); }
+      L.stackMaxRatio = 0;
+      if(L.M.extendo){ WB.setPlatBonus(L, 20); L.extendT = 300; }
       WB.sfx('levelup'); tutorialDone();
       for(let k=0;k<16;k++) L.stars.push({ x:L.pileCOMx, y:L.goalY, vx:rand(-4,4), vy:rand(-6,-1),
         life:rand(24,44), col:['#ffe14d','#ff9ff3','#7bed9f','#70a1ff'][k%4] });
@@ -400,10 +419,14 @@
 
   function endLevel(success, retreat){
     const node = L.node;
+    // Gum Nuts from the level, plus the bonus for winning it
+    const nuts = L.nuts + (success && !retreat ? (node.type==='mate' ? 10 : 15) : 0);
+    WB.progress.earn(nuts);
+    const nutNote = nuts ? '   ·   +'+nuts+' Gum Nuts' : '';
     if(retreat){
       // backing out costs the day, but not the full price of a loss
-      if(node.type==='mate') showToast('You slipped away from '+node.name+'. No harm done, but the day is gone.');
-      else { player.threat = clamp(player.threat+6,0,THREAT_MAX); showToast('You backed down from '+node.name+'.  +6 threat'); }
+      if(node.type==='mate'){ player.charm = clamp(player.charm-6,0,CHARM_GOAL); showToast('You slipped away from '+node.name+'.  -6 charm'+nutNote); }
+      else { player.threat = clamp(player.threat+6,0,THREAT_MAX); showToast('You backed down from '+node.name+'.  +6 threat'+nutNote); }
     } else if(node.type==='mate'){
       if(success){
         player.charm = clamp(player.charm+22,0,CHARM_GOAL);
@@ -411,21 +434,19 @@
         if(player.debuffs.length) player.debuffs.shift();
         const was = node.name;
         respawnNode(node);                       // she pairs off; a newcomer takes the spot
-        showToast(was+' is smitten! +22 charm'+(b?'  ·  buff: '+b.icon+' '+b.name:'')
-          +'   ·   '+(node.type==='mate'?'💗 ':'😤 ')+node.name+' moves in');
-      } else showToast(node.name+' was unimpressed…');
+        showToast(was+' is smitten! +22 charm'+(b?'  ·  buff: '+b.icon+' '+b.name:'')+nutNote);
+      } else showToast(node.name+' was unimpressed…'+nutNote);
     } else {
       if(success){
         player.threat = clamp(player.threat-18,0,THREAT_MAX);
         const was = node.name;
         respawnNode(node);                       // driven off; a newcomer takes the spot
-        showToast('You out-stacked '+was+'!  -18 threat   ·   '
-          +(node.type==='mate'?'💗 ':'😤 ')+node.name+' moves in');
+        showToast('You out-stacked '+was+'!  -18 threat'+nutNote);
       } else {
         player.threat = clamp(player.threat+12,0,THREAT_MAX);
         const d = grantRandom(DEBUFFS, player.debuffs);
         if(player.buffs.length) player.buffs.shift();
-        showToast(node.name+' bullied you! +12 threat'+(d?'  ·  debuff: '+d.icon+' '+d.name:''));
+        showToast(node.name+' bullied you! +12 threat'+(d?'  ·  debuff: '+d.icon+' '+d.name:'')+nutNote);
       }
     }
     L=null;
@@ -755,16 +776,22 @@
     const heckle = L.foes.length ? '⚠ '+L.foes.map(f=>f.name).join(' & ')+' heckling you with lettuce!' : '';
     ctx.font='bold 14px "Comic Neue", "Comic Sans MS", cursive'; const heckleW = ctx.measureText(heckle).width;
     ctx.font='bold 25px "Comic Neue", "Comic Sans MS", cursive';
-    const panelW = Math.max(ctx.measureText(who).width, heckleW, 250) + 24;
+    const tall = Math.round((WB.platTop(L)-WB.stackTopWorldY(L))/42);
+    const stackTxt = 'stack '+Math.min(L.stacksDone+1,L.stacksNeeded)+' / '+L.stacksNeeded+'   ·   height '+tall+' / '+L.target;
+    ctx.font='17px "Comic Neue", "Comic Sans MS", cursive'; const stackW = ctx.measureText(stackTxt).width + 70;  // + the Gum Nut counter
+    ctx.font='bold 25px "Comic Neue", "Comic Sans MS", cursive';
+    const panelW = Math.max(ctx.measureText(who).width, heckleW, stackW, 250) + 24;
     ctx.fillStyle='rgba(255,255,255,.72)'; ctx.strokeStyle='rgba(42,28,18,.3)'; ctx.lineWidth=2;
     roundRect(6, 8, panelW, L.foes.length ? 88 : 66, 14); ctx.fill(); ctx.stroke();
     roundRect(W-118, 8, 110, 50, 14); ctx.fill(); ctx.stroke();
     ctx.fillStyle='#2d5016'; ctx.textAlign='left';
     ctx.fillText(who, 16, 38);
-    const tall = Math.round((WB.platTop(L)-WB.stackTopWorldY(L))/42);
     ctx.font='17px "Comic Neue", "Comic Sans MS", cursive';
-    ctx.fillText('stack '+Math.min(L.stacksDone+1,L.stacksNeeded)+' / '+L.stacksNeeded
-      +'   ·   height '+tall+' / '+L.target, 16, 62);
+    ctx.fillText(stackTxt, 16, 62);
+    const nx = 16 + ctx.measureText(stackTxt).width + 22;
+    drawGumNut(nx, 57, 18);
+    ctx.fillStyle='#7a4a1c'; ctx.font='bold 17px "Comic Neue", "Comic Sans MS", cursive'; ctx.fillText(String(L.nuts), nx + 12, 62);
+    ctx.fillStyle='#2d5016';
     if(L.foes.length){ ctx.fillStyle='#c0392b'; ctx.font='bold 14px "Comic Neue", "Comic Sans MS", cursive';
       ctx.fillText(heckle, 16, 84); }
     ctx.textAlign='right'; ctx.font='24px serif';
@@ -788,6 +815,9 @@
       ctx.fillText(title, W/2, H/2-10);
       ctx.fillStyle='#fff'; ctx.font='20px "Comic Neue", "Comic Sans MS", cursive';
       ctx.fillText(win ? 'Well stacked!' : L.loseWhy==='misses' ? 'Too many poops hit the ground…' : 'The tower toppled…', W/2, H/2+28);
+      const earned = L.nuts + (win ? (L.node.type==='mate' ? 10 : 15) : 0);
+      if(earned){ ctx.fillStyle='#ffd98a'; ctx.font='bold 22px "Comic Neue", "Comic Sans MS", cursive';
+        ctx.fillText('+'+earned+' Gum Nuts', W/2, H/2+64); }
       ctx.textAlign='left';
     }
   }
@@ -806,6 +836,8 @@
   //  UPDATE / INPUT
   // =====================================================================
   function update(){
+    // Slow-Mo upgrade: the level runs at half speed for a moment
+    if(!paused && mode===MODE.LEVEL && L && L.slowmoLeft > 0){ L.slowmoLeft--; if(L.slowmoLeft % 2) return; }
     t++;
     if(toast){ toast.life--; if(toast.life<=0) toast=null; }
     if(paused) return;
