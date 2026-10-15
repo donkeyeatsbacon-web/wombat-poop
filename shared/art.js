@@ -20,6 +20,35 @@
   WB.PAL_MATE   = { fur:'#9e8069', shade:'#78614f', light:'#dbc4ae', belly:'#b99d86', nose:'#2b2420',
                     earIn:'#efa5b2', band:'#d0508f', dot:'#fff0f6' };
 
+  // Cosmetics (see WB.progress.looks): what the player's wombat and platform
+  // look like. Rivals and mates keep their own colours.
+  const FURS = {
+    'fur-sandy':    { fur:'#b8925e', shade:'#8d6c41', light:'#e6cfa6', belly:'#cdb08a', earIn:'#e8b7a0' },
+    'fur-ginger':   { fur:'#b8703c', shade:'#8a4f26', light:'#efc9a0', belly:'#d0905c', earIn:'#f0a890' },
+    'fur-midnight': { fur:'#4a4440', shade:'#332e2b', light:'#8a817a', belly:'#5f5852', earIn:'#a87f78' },
+    'fur-snowy':    { fur:'#e9e4dc', shade:'#bdb5a9', light:'#ffffff', belly:'#f6f1ea', earIn:'#f2b8c0', nose:'#5a4a44' },
+  };
+  const BANDS = {
+    'band-blue':   { band:'#2f63c9', dot:'#ffd23f' }, 'band-orange': { band:'#ef7d22', dot:'#2f63c9' },
+    'band-pink':   { band:'#e0569b', dot:'#fff0f6' }, 'band-purple': { band:'#7a3fb8', dot:'#ffd23f' },
+    'band-black':  { band:'#2b2b2b', dot:'#ffffff' }, 'band-gold':   { band:'#e8b420', dot:'#c0392b' },
+    'band-rainbow':{ band:'#e74c3c', dot:'#ffffff', rainbow:true },
+  };
+  const RAINBOW = ['#e74c3c','#f39c12','#f1c40f','#2ecc71','#3498db','#9b59b6'];
+  const PAINTS = {
+    'paint-red':   { top:'#d9534f', low:'#a33a37' }, 'paint-blue':  { top:'#4a90d9', low:'#2f63a3' },
+    'paint-green': { top:'#6bbf59', low:'#468a3a' }, 'paint-night': { top:'#3b3f58', low:'#262a3d' },
+    'paint-candy': { top:'#fdf6ec', low:'rgba(110,50,30,.2)', stripes:'#e74c3c' }, 'paint-gold':  { top:'#f2c230', low:'#cf9418' },
+  };
+  // (the Workshop sets WB.lookPreview to try a look on before buying it)
+  const lookNow = () => WB.lookPreview || (WB.progress && WB.progress.look ? WB.progress.look() : null);
+  const palCache = {};
+  function playerPal(lk){
+    if(!FURS[lk.fur] && !BANDS[lk.band]) return WB.PAL_PLAYER;
+    const key = lk.fur + '|' + lk.band;
+    return palCache[key] || (palCache[key] = { ...WB.PAL_PLAYER, ...(FURS[lk.fur] || {}), ...(BANDS[lk.band] || {}) });
+  }
+
   // The wombat is drawn standing on its feet (about 160 tall, ears included);
   // this scales it to fit where the game's original art went, whose body
   // centre sat 66 above the feet.
@@ -145,6 +174,11 @@
     // its effort marks — endless mode's level-up leap).
     function drawWombatArt(wb, scale, pal, extras){
       pal = pal || WB.PAL_PLAYER; scale = scale || 1; extras = extras || {};
+      let hat = null;
+      if(pal === WB.PAL_PLAYER){                    // the player's wombat wears what you've picked
+        const lk = extras.look || lookNow();
+        if(lk){ pal = playerPal(lk); if(lk.hat !== 'hat-none') hat = lk.hat; }
+      }
       const t = now();
       const p = wb.strain||0, f = clamp(wb.face||0,-1,1), af = Math.abs(f), sg = f<0 ? -1 : 1;
       const blink = (wb.blink||0) > 0, mode = wb.mode || 'crawl', walking = mode === 'crawl';
@@ -189,11 +223,12 @@
       // headband across the forehead, tails flapping out behind the turn
       ctx.save(); head(); ctx.clip();
       ctx.fillStyle = pal.band; ctx.fillRect(hx - 80, -142, 160, 13);
+      if(pal.rainbow) RAINBOW.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(hx - 80, -142 + i*13/6, 160, 13/6 + 0.5); });
       ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(hx - 80, -142); ctx.lineTo(hx + 80, -142); ctx.moveTo(hx - 80, -129); ctx.lineTo(hx + 80, -129); ctx.stroke();
       ctx.restore(); ctx.lineWidth = 4.5;
       const tx = hx - sg*44, fl = Math.sin(t*0.22)*6, fl2 = Math.cos(t*0.22)*6;
       ctx.beginPath(); ctx.moveTo(tx, -139); ctx.lineTo(tx - sg*26, -147 + fl); ctx.lineTo(tx - sg*22, -133 + fl); ctx.closePath(); inked(pal.band);
-      ctx.beginPath(); ctx.moveTo(tx, -134); ctx.lineTo(tx - sg*20, -120 + fl2); ctx.lineTo(tx - sg*10, -116 + fl2); ctx.closePath(); inked(pal.band);
+      ctx.beginPath(); ctx.moveTo(tx, -134); ctx.lineTo(tx - sg*20, -120 + fl2); ctx.lineTo(tx - sg*10, -116 + fl2); ctx.closePath(); inked(pal.rainbow ? RAINBOW[4] : pal.band);
       ell(hx + f*18, -135.5, 5.5, 5.5); inked(pal.dot);
 
       // pale muzzle and the big flat nose
@@ -258,6 +293,7 @@
         ctx.moveTo(hx + 44, yy - 8); ctx.quadraticCurveTo(hx + 51, yy + 2, hx + 44, yy + 4); ctx.quadraticCurveTo(hx + 37, yy + 2, hx + 44, yy - 8);
         inked('#9fe3ff');
       }
+      if(hat) drawHat(hat, hx, t);
       ctx.restore();
 
       // effort marks floating around the head
@@ -273,11 +309,97 @@
       }
     }
 
+    // Hats sit on the head, in the wombat's own drawing space (head top at -148,
+    // hx = the head's sideways shift as it turns).
+    function drawHat(id, hx, t){
+      ctx.lineWidth = 4; ctx.strokeStyle = INK;
+      if(id === 'hat-party'){
+        ctx.beginPath(); ctx.moveTo(hx - 26, -140); ctx.lineTo(hx + 26, -140); ctx.lineTo(hx + 6, -186); ctx.closePath(); inked('#ff5a8a');
+        ctx.fillStyle = '#ffe14d'; for(const [dx, dy] of [[-9,-150], [9,-156], [0,-166], [5,-176]]){ ell(hx + dx, dy, 3.5, 3.5); ctx.fill(); }
+        ell(hx + 6, -188, 7, 7); inked('#ffe14d');
+      } else if(id === 'hat-beanie'){
+        ctx.beginPath(); ctx.ellipse(hx, -142, 42, 30, 0, Math.PI, TAU); ctx.closePath(); inked('#3a7bd5');
+        roundRect(hx - 45, -148, 90, 14, 7); inked('#2f63c9');
+        ctx.strokeStyle = 'rgba(42,28,18,.3)'; ctx.lineWidth = 2;
+        for(let k = -30; k <= 30; k += 12){ ctx.beginPath(); ctx.moveTo(hx + k, -146); ctx.lineTo(hx + k, -136); ctx.stroke(); }
+        ctx.strokeStyle = INK; ctx.lineWidth = 4;
+        ell(hx, -172, 9, 9); inked('#ffffff');
+      } else if(id === 'hat-flowers'){
+        ctx.strokeStyle = '#3f8f3a'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.ellipse(hx, -118, 44, 32, 0, Math.PI*1.08, Math.PI*1.92); ctx.stroke();
+        ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+        const cols = ['#ff8fb1', '#ffffff', '#ffd23f', '#c39bff'];
+        for(let i = 0; i < 6; i++){
+          const a = Math.PI*(1.12 + i*0.152), x = hx + 44*Math.cos(a), y = -118 + 32*Math.sin(a);
+          for(let k = 0; k < 5; k++){ const b = k*TAU/5; ell(x + Math.cos(b)*5, y + Math.sin(b)*5, 4.5, 4.5); inked(cols[i % 4]); }
+          ell(x, y, 3.5, 3.5); inked('#f39c12');
+        }
+      } else if(id === 'hat-propeller'){
+        ctx.beginPath(); ctx.ellipse(hx, -142, 34, 20, 0, Math.PI, TAU); ctx.closePath(); inked('#e74c3c');
+        ctx.save(); ctx.clip(); ctx.fillStyle = '#f1c40f'; ctx.fillRect(hx - 8, -170, 16, 30); ctx.restore(); ctx.stroke();
+        ell(hx + 22, -142, 20, 5); inked('#c0392b');
+        ctx.beginPath(); ctx.moveTo(hx, -162); ctx.lineTo(hx, -172); ctx.stroke();
+        const bw = Math.abs(Math.cos(t*0.6))*32 + 3;
+        ell(hx, -174, bw, 4.5); inked('#3498db'); ell(hx, -174, 3.5, 3.5); inked('#f1c40f');
+      } else if(id === 'hat-cowboy'){
+        roundRect(hx - 30, -176, 60, 36, 12); inked('#a0672e');
+        ctx.beginPath(); ctx.moveTo(hx, -176); ctx.lineTo(hx, -166); ctx.stroke();
+        ctx.fillStyle = '#5a2d0c'; ctx.fillRect(hx - 28, -158, 56, 8);
+        ctx.beginPath(); ctx.moveTo(hx - 72, -150); ctx.quadraticCurveTo(hx, -128, hx + 72, -150);
+        ctx.quadraticCurveTo(hx, -142, hx - 72, -150); ctx.closePath(); inked('#8b5a2b');
+      } else if(id === 'hat-tophat'){
+        roundRect(hx - 24, -186, 48, 42, 4); inked('#2b2b2b');
+        ctx.fillStyle = '#c0392b'; ctx.fillRect(hx - 22, -158, 44, 9);
+        ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(hx - 14, -180); ctx.lineTo(hx - 14, -164); ctx.stroke();
+        ctx.strokeStyle = INK; ctx.lineWidth = 4;
+        ell(hx, -145, 42, 8); inked('#2b2b2b');
+      } else if(id === 'hat-crown'){
+        ctx.beginPath(); ctx.moveTo(hx - 30, -142); ctx.lineTo(hx - 32, -170); ctx.lineTo(hx - 16, -158); ctx.lineTo(hx, -176);
+        ctx.lineTo(hx + 16, -158); ctx.lineTo(hx + 32, -170); ctx.lineTo(hx + 30, -142); ctx.closePath(); inked('#f2c230');
+        ctx.lineWidth = 2.5;
+        for(const [dx, c] of [[-17, '#3498db'], [0, '#e74c3c'], [17, '#2ecc71']]){ ell(hx + dx, -152, 4.5, 4.5); inked(c); }
+        for(const [dx, dy] of [[-32,-172], [0,-178], [32,-172]]){ ell(hx + dx, dy, 4, 4); inked('#f2c230'); }
+      }
+      ctx.lineWidth = 4.5;
+    }
+
+    // a falling poop's trail (the Poop trail cosmetic); nothing with none worn
+    function drawTrail(p){
+      const lk = lookNow();
+      if(!lk || lk.trail === 'trail-none' || !(p.vy > 1)) return;
+      ctx.save();
+      for(let k = 1; k <= 4; k++){
+        const x = p.x - p.vx*k*4 + Math.sin(now()*0.25 + k*1.7 + (p.born||0))*5, y = p.y - p.h/2 - k*19;
+        const r = Math.max(7, p.w/3.6) * (1 - k*0.14);
+        ctx.globalAlpha = 1 - k*0.18;
+        if(lk.trail === 'trail-sparkle'){
+          ctx.fillStyle = '#ffd23f'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath();
+          for(let i = 0; i < 8; i++){ const a = i*Math.PI/4 + now()*0.08, rr = i % 2 ? r*0.35 : r; ctx.lineTo(x + Math.cos(a)*rr, y + Math.sin(a)*rr); }
+          ctx.closePath(); ctx.fill(); ctx.stroke();
+        } else if(lk.trail === 'trail-hearts'){
+          ctx.fillStyle = '#ff6fa3'; ctx.beginPath(); ctx.moveTo(x, y + r*0.9);
+          ctx.bezierCurveTo(x - r*1.4, y - r*0.2, x - r*0.6, y - r*1.2, x, y - r*0.4);
+          ctx.bezierCurveTo(x + r*0.6, y - r*1.2, x + r*1.4, y - r*0.2, x, y + r*0.9); ctx.fill();
+        } else if(lk.trail === 'trail-bubbles'){
+          ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.strokeStyle = '#3aa6d9'; ctx.lineWidth = 2.5;
+          ell(x, y, r*0.8, r*0.8); ctx.fill(); ctx.stroke();
+        } else if(lk.trail === 'trail-stars'){
+          drawStar(x, y, r, '#ffe14d');
+        }
+      }
+      ctx.restore();
+    }
+
     // a wooden board: flat wood, a darker lower edge, a highlight, an outline
-    function plank(x, y, w, h, r, grainStep, grainStart){
-      ctx.fillStyle = '#c98b4a'; roundRect(x, y, w, h, r); ctx.fill();
+    // (paint: the Platform paint cosmetic, or plain wood)
+    function plank(x, y, w, h, r, grainStep, grainStart, paint){
+      ctx.fillStyle = paint ? paint.top : '#c98b4a'; roundRect(x, y, w, h, r); ctx.fill();
       ctx.save(); ctx.clip();
-      ctx.fillStyle = '#9c6531'; ctx.fillRect(x, y + h*0.62, w, h);
+      if(paint && paint.stripes){
+        ctx.fillStyle = paint.stripes;
+        for(let sx = x - h; sx < x + w; sx += 18){ ctx.beginPath(); ctx.moveTo(sx, y + h); ctx.lineTo(sx + 9, y + h); ctx.lineTo(sx + 9 + h, y); ctx.lineTo(sx + h, y); ctx.closePath(); ctx.fill(); }
+      }
+      ctx.fillStyle = paint ? paint.low : '#9c6531'; ctx.fillRect(x, y + h*0.62, w, h);
       ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.moveTo(x + 6, y + 5); ctx.lineTo(x + w - 6, y + 5); ctx.stroke();
       ctx.strokeStyle = 'rgba(42,28,18,.35)'; ctx.lineWidth = 2;
@@ -296,7 +418,8 @@
       ctx.strokeStyle = INK; ctx.lineWidth = 3.5;
       ctx.fillStyle = '#8a5a30';
       ctx.fillRect(-8, plat.h/2 - 2, 16, H); ctx.strokeRect(-8, plat.h/2 - 2, 16, H);
-      plank(-plat.w/2, -plat.h/2, plat.w, plat.h, 10, 44, 22);
+      const lk = lookNow();
+      plank(-plat.w/2, -plat.h/2, plat.w, plat.h, 10, 44, 22, lk && PAINTS[lk.paint]);
       ctx.restore();
     }
 
@@ -462,7 +585,7 @@
       ctx.restore();
     }
 
-    return { roundRect, drawButton, drawGumNut, drawRoundButton, drawPoop, drawPuddle, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
+    return { roundRect, drawButton, drawGumNut, drawRoundButton, drawPoop, drawPuddle, drawStack, drawWombatArt, drawPlatform, drawTopPlat, drawTrail, drawHat,
              drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine };
   };
 })();
