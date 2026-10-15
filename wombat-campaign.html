@@ -50,10 +50,12 @@
   const MODE = { INTRO:0, OVERWORLD:1, TRAVEL:2, LEVEL:3, WIN:4, LOSE:5 };
   let mode = MODE.INTRO;
 
-  const CHARM_GOAL = 100, THREAT_MAX = 100;
+  const THREAT_MAX = 100;
+  // Each season needs more charm than the last: 100, 130, 160, ...
+  const charmGoal = (season) => 100 + 30*((season || player.season) - 1);
   // household: mates you've wooed, who live in your burrow ({ name, kind });
   // party: the names you last took along to a level
-  const player = { charm: 0, threat: 0, day: 1, buffs: [], debuffs: [], household: [], party: [] };
+  const player = { season: 1, charm: 0, threat: 0, day: 1, buffs: [], debuffs: [], household: [], party: [] };
 
   const BUFFS = [
     { key:'wide',  icon:'🧡', name:'Charmer',     desc:'Wider catch platform' },
@@ -92,6 +94,22 @@
 
   // The first four of each greet a new season; newcomers draw from the rest.
   const MATE_NAMES  = ['Wanda','Winnie','Wendy','Willa','Matilda','Bindi','Pearl','Daisy','Tilly','Mabel','Rosie','Hazel'];
+  // A name no mate on the map or in your burrow has yet (your burrow carries
+  // over between seasons). Once every name is used, daughters take them: "Wanda II".
+  function freshMateName(taken){
+    for(let gen = 1; ; gen++){
+      const suffix = gen===1 ? '' : ' '+['','','II','III','IV','V','VI','VII','VIII','IX','X'][Math.min(gen,10)];
+      const pool = MATE_NAMES.map(nm => nm+suffix).filter(nm => !taken.has(nm));
+      if(pool.length) return pool[(Math.random()*pool.length)|0];
+    }
+  }
+  // Prefer a personality your burrow hasn't got yet.
+  function freshMateKind(){
+    const kinds = Object.keys(MATE_KINDS), have = new Set(player.household.map(m => m.kind));
+    const fresh = kinds.filter(k => !have.has(k));
+    const pool = fresh.length ? fresh : kinds;
+    return pool[(Math.random()*pool.length)|0];
+  }
   const RIVAL_NAMES = ['Bruiser','Chomps','Tank','Grunt','Digger','Boof','Crusher','Stomper','Gnasher','Bazza','Thumper','Knuckles'];
   const INVADE_R = 152;
 
@@ -134,8 +152,11 @@
   const mateKindOf = n => MATE_KINDS[n.kind] ? n.kind : 'gardener';
   const inBurrow = kind => player.household.some(m => m.kind === kind);   // invading rivals stop on a ring this far from the burrow, each on its own trail
 
+  // Lay out a fresh territory for this season. Every season after the first
+  // starts tougher: faster rivals, bigger stacks, nastier personalities sooner.
   function buildMap(){
-    nodes = []; wave = 0; encounters = 0;
+    const sx = player.season - 1;
+    nodes = []; wave = sx; encounters = 0;
     homeNode = { x:W/2, y:H*0.52, type:'home', name:'Burrow', state:'open' };
     nodes.push(homeNode);
     const cx = homeNode.x, cy = homeNode.y, rx = 216, ry = 250;
@@ -155,14 +176,20 @@
       if(s.type==='mate'){
         // mates wander off on their own schedule — woo them before they go
         nodes.push({ homeX:s.x, homeY:s.y, awayX:ax, awayY:ay, x:s.x, y:s.y, type:'mate',
-          name:MATE_NAMES[mi%MATE_NAMES.length], kind:['gardener','builder','lookout'][mi%3], target:4, stacks:2, state:'open',
-          march:0, speed:[0.20,0.16,0.26][mi%3], delay:[1,3,0][mi%3] });
+          ...(player.household.length
+                ? (() => { const name = freshMateName(new Set([...nodes.map(m => m.name), ...player.household.map(m => m.name)]));
+                           return { name, kind: freshMateKind() }; })()
+                : { name: MATE_NAMES[mi%MATE_NAMES.length], kind: ['gardener','builder','lookout'][mi%3] }),
+          target:4 + Math.floor(sx/2), stacks:2 + Math.floor(sx/2), state:'open',
+          march:0, speed:[0.20,0.16,0.26][mi%3] + sx*0.015, delay:[1,3,0][mi%3] });
         mi++;
       } else {
         // rivals march inward on their own schedule — staggered starts & speeds
         nodes.push({ homeX:s.x, homeY:s.y, awayX:ax, awayY:ay, x:s.x, y:s.y, type:'rival',
-          name:RIVAL_NAMES[ri%RIVAL_NAMES.length], kind:['roller','lobber','roller'][ri%3], target:5, stacks:3, state:'open',
-          march:0, speed:[0.34,0.26,0.20][ri%3], delay:[0,1,3][ri%3], invader:false });
+          name:RIVAL_NAMES[ri%RIVAL_NAMES.length],
+          kind: sx ? rivalPool()[(Math.random()*rivalPool().length)|0] : ['roller','lobber','roller'][ri%3],
+          target:5 + Math.floor(sx/2), stacks:3 + Math.floor(sx/2), state:'open',
+          march:0, speed:[0.34,0.26,0.20][ri%3] + sx*0.025, delay:[0,1,3][ri%3], invader:false });
         ri++;
       }
     }
@@ -203,7 +230,7 @@
     if(arrived.length) showToast('⚠ '+arrived.join(' & ')+' reached your territory! They\'ll roll lettuce at you.');
     else if(departed.length) showToast('💔 '+departed.join(' & ')+' wandered off — you were too slow.');
     if(player.threat >= THREAT_MAX) mode = MODE.LOSE;
-    else if(player.charm >= CHARM_GOAL) mode = MODE.WIN;
+    else if(player.charm >= charmGoal()) mode = MODE.WIN;
   }
 
   function showToast(text){ toast = { text, life:190 }; }
@@ -212,14 +239,18 @@
   // 60% of newcomers are males (rivals), 40% females (mates).
   function respawnNode(n){
     encounters++;
-    wave = Math.floor(encounters/6);              // the habitat toughens as the season goes on
+    wave = Math.floor(encounters/6) + (player.season - 1);   // tougher as the season goes on, and each season
     const outgoing = n.name;
     n.type    = Math.random() < 0.6 ? 'rival' : 'mate';
-    const names = n.type==='mate' ? MATE_NAMES : RIVAL_NAMES;
     const taken = new Set(nodes.map(m => m.name));          // includes the outgoing wombat
-    let pool = names.filter(nm => !taken.has(nm));
-    if(!pool.length) pool = names.filter(nm => nm !== outgoing);
-    n.name    = pool[(Math.random()*pool.length)|0];   // clearly a different wombat
+    if(n.type==='mate'){
+      for(const m of player.household) taken.add(m.name);   // never a second "Wanda"
+      n.name = freshMateName(taken);
+    } else {
+      let pool = RIVAL_NAMES.filter(nm => !taken.has(nm));
+      if(!pool.length) pool = RIVAL_NAMES.filter(nm => nm !== outgoing);
+      n.name = pool[(Math.random()*pool.length)|0];   // clearly a different wombat
+    }
     n.target  = (n.type==='mate'?4:5) + Math.floor(wave/2);
     n.stacks  = (n.type==='mate'?2:3) + Math.floor(wave/2);
     n.state   = 'open';
@@ -229,10 +260,9 @@
       const pool = rivalPool();
       n.kind  = pool[(Math.random()*pool.length)|0];
       n.delay = 1 + ((Math.random()*3)|0);        // staggered arrival
-      n.speed = [0.34,0.26,0.20][(Math.random()*3)|0] + wave*0.03;
+      n.speed = [0.34,0.26,0.20][(Math.random()*3)|0] + wave*0.03;   // (wave includes the season)
     } else {
-      const kinds = Object.keys(MATE_KINDS);
-      n.kind  = kinds[(Math.random()*kinds.length)|0];
+      n.kind  = freshMateKind();
       n.delay = 1 + ((Math.random()*3)|0);
       n.speed = [0.20,0.16,0.26][(Math.random()*3)|0] + wave*0.02;
     }
@@ -260,7 +290,7 @@
   function snapshot(){
     return {
       v: SAVE_VERSION,
-      player: { charm:player.charm, threat:player.threat, day:player.day,
+      player: { season:player.season, charm:player.charm, threat:player.threat, day:player.day,
                 buffs:player.buffs.slice(), debuffs:player.debuffs.slice(),
                 household:player.household.map(m=>({ name:m.name, kind:m.kind })), party:player.party.slice() },
       wave, encounters,
@@ -302,7 +332,8 @@
   let pendingSave = readSave();
 
   function restoreGame(d){
-    player.charm   = clamp(d.player.charm, 0, CHARM_GOAL);
+    player.season  = Math.max(1, d.player.season|0);
+    player.charm   = clamp(d.player.charm, 0, charmGoal());
     player.threat  = clamp(d.player.threat, 0, THREAT_MAX);
     player.day     = Math.max(1, d.player.day|0);
     player.buffs   = d.player.buffs.filter(k=>BUFF_KEYS.includes(k));
@@ -330,13 +361,31 @@
     mode = MODE.OVERWORLD;
   }
 
+  // A whole new campaign: season 1, an empty burrow.
   function newGame(){
+    player.season = 1; player.household = []; player.party = [];
+    startSeason();
+  }
+  // Start the current season afresh, keeping your burrow (and the season number).
+  function startSeason(){
     player.charm = 0; player.threat = 0; player.day = 1;
-    player.buffs = []; player.debuffs = []; player.household = []; player.party = [];
+    player.buffs = []; player.debuffs = [];
     L = null; travel = null; toast = null;
     buildMap();
     mode = MODE.OVERWORLD;
     saveGame();
+  }
+
+  // When a season ends, the save moves straight on: to the next season after a
+  // win, or a retry of this one after a loss, with your burrow either way. The
+  // banner shows how the season went (seasonEnd), over the new map.
+  let seasonEnd = null;
+  function endSeason(won){
+    seasonEnd = { won, season: player.season, day: player.day, charm: player.charm, threat: player.threat };
+    if(won) player.season++;
+    const shown = mode;
+    startSeason();
+    mode = shown;                                 // keep the banner up until a tap
   }
 
   // =====================================================================
@@ -665,11 +714,11 @@
     const nutNote = nuts ? '   ·   +'+nuts+' Gum Nuts' : '';
     if(retreat){
       // backing out costs the day, but not the full price of a loss
-      if(node.type==='mate'){ player.charm = clamp(player.charm-6,0,CHARM_GOAL); showToast('You slipped away from '+node.name+'.  -6 charm'+nutNote); }
+      if(node.type==='mate'){ player.charm = clamp(player.charm-6,0,charmGoal()); showToast('You slipped away from '+node.name+'.  -6 charm'+nutNote); }
       else { player.threat = clamp(player.threat+6,0,THREAT_MAX); showToast('You backed down from '+node.name+'.  +6 threat'+nutNote); }
     } else if(node.type==='mate'){
       if(success){
-        player.charm = clamp(player.charm+22,0,CHARM_GOAL);
+        player.charm = clamp(player.charm+22,0,charmGoal());
         const b = grantRandom(BUFFS, player.buffs);
         if(player.debuffs.length) player.debuffs.shift();
         const was = node.name, perk = MATE_KINDS[mateKindOf(node)];
@@ -696,7 +745,7 @@
     if(mode===MODE.WIN) WB.sfx('win'); else if(mode===MODE.LOSE) WB.sfx('sad');
     if(mode===MODE.LEVEL) mode=MODE.OVERWORLD;
     // the day is resolved — persist it, or wipe the slot if the season just ended
-    if(mode===MODE.OVERWORLD) saveGame(); else clearRaw();
+    if(mode===MODE.OVERWORLD) saveGame(); else endSeason(mode===MODE.WIN);
   }
   function grantRandom(pool,list){
     const avail = pool.filter(b=>!list.includes(b.key));
@@ -721,7 +770,7 @@
     else if(mode===MODE.LEVEL && L) drawLevel();
     else {
       drawOverworld();
-      if(mode===MODE.WIN)  drawBanner('🏆 Season won! Your charm reigns.','#ffe14d');
+      if(mode===MODE.WIN)  drawBanner('🏆 Season '+(seasonEnd ? seasonEnd.season : player.season-1)+' won! Your charm reigns.','#ffe14d');
       if(mode===MODE.LOSE) drawBanner('💀 Rivals overran your territory.','#ff8a8a');
     }
     if(choosing) drawPicker();
@@ -880,8 +929,8 @@
      'Let one reach you and it joins you on the plank to cause trouble!'
     ].forEach((l,i)=> ctx.fillText(l, W/2, 235+i*34));
     if(pendingSave){
-      drawButton(BTN_CONTINUE, '▶ Continue — Day '+pendingSave.player.day, '#7bed9f', '#14532d');
-      drawButton(BTN_NEW,      '✦ New season',                             '#ffd98a', '#7a3d12');
+      drawButton(BTN_CONTINUE, '▶ Continue — Season '+Math.max(1, pendingSave.player.season|0)+', Day '+pendingSave.player.day, '#7bed9f', '#14532d');
+      drawButton(BTN_NEW, confirmNewUntil > t ? '⚠ Tap again: start over' : '✦ New campaign', '#ffd98a', '#7a3d12');
     } else {
       ctx.fillStyle='#e0492b'; ctx.font='bold 26px "Comic Neue", "Comic Sans MS", cursive';
       ctx.fillText('▶ Tap to begin', W/2, H*0.90+Math.sin(t*0.1)*3);
@@ -890,6 +939,7 @@
   }
 
   const BTN_CONTINUE = { x:W/2-190, y:H*0.79,    w:380, h:62 };
+  let confirmNewUntil = 0;       // "New campaign" asks for a second tap until this frame
   const BTN_NEW      = { x:W/2-190, y:H*0.79+74, w:380, h:62 };
 
   // a cartoon gum tree. The canopy's outline is its blobs stroked thick and
@@ -1015,10 +1065,10 @@
   }
   function drawOverworldHUD(){
     ctx.fillStyle='rgba(255,255,255,.78)'; roundRect(10,10,W-20,58,12); ctx.fill();
-    meter(20,36,290,18, player.charm/CHARM_GOAL, '#ff6fae', '💗 Charm '+player.charm+'/'+CHARM_GOAL);
+    meter(20,36,290,18, player.charm/charmGoal(), '#ff6fae', '💗 Charm '+player.charm+'/'+charmGoal());
     meter(W-310,36,290,18, player.threat/THREAT_MAX, '#e0492b', '😤 Threat '+player.threat+'/'+THREAT_MAX);
     ctx.fillStyle='#2d3a12'; ctx.font='bold 15px "Comic Neue", "Comic Sans MS", cursive'; ctx.textAlign='center';
-    ctx.fillText('Day '+player.day, W/2, 26);
+    ctx.fillText('Season '+player.season+' · Day '+player.day, W/2, 26);
     const inv = invaders().length;
     // below the HUD box, between the effect chips, so it doesn't run into the meters
     if(inv){ ctx.fillStyle='#c0392b'; ctx.font='bold 16px "Comic Neue", "Comic Sans MS", cursive';
@@ -1172,8 +1222,13 @@
     ctx.textAlign='center'; ctx.fillStyle=col; ctx.font='bold 38px "Comic Neue", "Comic Sans MS", cursive';
     ctx.fillText(text, W/2, H/2-10);
     ctx.fillStyle='#fff'; ctx.font='22px "Comic Neue", "Comic Sans MS", cursive';
-    ctx.fillText('Day '+player.day+'  ·  💗 '+player.charm+'   😤 '+player.threat, W/2, H/2+30);
-    ctx.fillText('▶ Tap to play again', W/2, H/2+70);
+    const e = seasonEnd || { won: mode===MODE.WIN, season: player.season, day: player.day, charm: player.charm, threat: player.threat };
+    ctx.fillText('Day '+e.day+'  ·  💗 '+e.charm+'   😤 '+e.threat, W/2, H/2+30);
+    ctx.font='18px "Comic Neue", "Comic Sans MS", cursive'; ctx.fillStyle='#ffe9b8';
+    ctx.fillText(e.won ? 'Season '+player.season+' needs '+charmGoal()+' charm, and the rivals are tougher.'
+                       : 'Your burrow stays with you'+(player.household.length ? ' ('+player.household.length+' mate'+(player.household.length>1?'s':'')+').' : '.'), W/2, H/2+64);
+    ctx.fillStyle='#7bed9f'; ctx.font='bold 24px "Comic Neue", "Comic Sans MS", cursive';
+    ctx.fillText(e.won ? '▶ Tap to start season '+player.season : '▶ Tap to try season '+player.season+' again', W/2, H/2+108);
     ctx.textAlign='left';
   }
 
@@ -1225,12 +1280,16 @@
       if(pendingSave){
         // with a save on offer the screen is a menu, so ignore taps off the buttons
         if(WB.hitBtn(BTN_CONTINUE,px,py)){ const d=pendingSave; pendingSave=null; restoreGame(d); }
-        else if(WB.hitBtn(BTN_NEW,px,py)){ pendingSave=null; newGame(); }
+        else if(WB.hitBtn(BTN_NEW,px,py)){
+          // starting over loses your burrow and season, so it takes a second tap
+          if(confirmNewUntil > t){ pendingSave=null; newGame(); }
+          else { confirmNewUntil = t + 180; WB.sfx('click'); }
+        }
         return;
       }
       newGame(); return;
     }
-    if(mode===MODE.WIN||mode===MODE.LOSE){ newGame(); return; }
+    if(mode===MODE.WIN||mode===MODE.LOSE){ seasonEnd = null; mode = MODE.OVERWORLD; WB.sfx('click'); return; }
     if(mode===MODE.OVERWORLD){
       const chip = effectChips.find(c => WB.hitBtn(c.b, px, py));
       if(chip){ showToast(chip.e.icon+'  '+chip.e.name+' ('+(chip.good ? 'buff' : 'debuff')+'): '+chip.e.desc.toLowerCase()); WB.sfx('click'); return; }

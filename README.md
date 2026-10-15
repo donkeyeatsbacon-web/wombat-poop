@@ -49,7 +49,12 @@ there and play a stacking level against it.
   and Ploppers drop bad cubes that rot. The more that get in, the less of the
   plank your wombat has. Finish a stack to scare one off, or catch a Lobber's
   lettuce to send it packing. Nastier types turn up later in a season.
-- **Win the season** by reaching 100 charm; **lose it** if threat reaches 100.
+- **Win the season** by reaching its charm goal; **lose it** if threat reaches 100.
+  Season 1 needs 100 charm, season 2 needs 130, then 160, and so on. Each new
+  season the rivals march faster, stacks are bigger and the nastier types show
+  up sooner. Your burrow (the mates who joined you) carries over. Lose a season
+  and you try that season again, burrow and all. **New campaign** on the
+  campaign screen is the only way to start over from season 1 (it asks twice).
 - **Buffs and debuffs** change your platform width, how fast poops fall, your
   toilet paper and how easily the tower topples. They show as chips under the
   top bar: tap one to see what it does, or open the ☰ menu for the full list.

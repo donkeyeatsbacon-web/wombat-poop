@@ -5,7 +5,7 @@
 //
 // tools/bump-version.js rewrites CACHE and PRECACHE: CACHE changes whenever any
 // file changes, which makes browsers install this worker afresh.
-const CACHE = 'wombat-cbb47958';
+const CACHE = 'wombat-baa3839e';
 const PRECACHE = [
   './',
   'index.html',

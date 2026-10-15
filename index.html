@@ -94,7 +94,7 @@
   document.getElementById('workshopStatus').textContent = '🌰 ' + WB.progress.nuts().toLocaleString() + ' Gum Nuts';
   const save = read('wombatCampaignSave');
   if(save && save.player && Number.isFinite(save.player.day))
-    document.getElementById('campaignStatus').textContent = '▶ Continue — Day ' + save.player.day;
+    document.getElementById('campaignStatus').textContent = '▶ Continue — Season ' + Math.max(1, save.player.season|0) + ', Day ' + save.player.day;
 
   // sound on/off, shared with both modes
   const soundBtn = document.getElementById('sound');
