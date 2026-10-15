@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Stickers · Combat Wombat</title>
+<meta name="description" content="Your sticker book: goals to chase in endless and the campaign.">
+<meta name="theme-color" content="#6ab04c">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="shared/base.css?v=30c6dc38">
+<style>
+  html, body { touch-action: manipulation; }
+  body { overflow: auto; }
+  #wrap { position: static; display: block; min-height: 100%; padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 40px; }
+  .page { max-width: 980px; margin: 0 auto; display: grid; gap: 18px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+  h1 { font-size: clamp(30px, 7vw, 44px); color: #fff; text-shadow: 0 3px 0 #2d5016; flex: 1 1 auto; }
+  .back, .tally {
+    font: inherit; font-weight: bold; text-decoration: none; color: #5a2d0c;
+    background: #fff8e7; border: 3px solid #7a3d12; border-radius: 999px; padding: 6px 14px;
+  }
+  .back:focus-visible { outline: 4px solid #ffe14d; outline-offset: 2px; }
+  .tally { font-size: 20px; }
+  .lede { color: #23301a; font-size: 17px; max-width: 70ch; }
+  .book { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 14px; }
+  .sticker { background: #fff8e7; border: 4px solid #7a3d12; border-radius: 18px; padding: 12px 14px; color: #5a2d0c;
+             display: grid; grid-template-columns: 58px 1fr; gap: 4px 12px; align-items: start; position: relative; }
+  .sticker .icon { grid-row: span 3; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
+                   font-size: 30px; background: #ffe14d; border: 3px solid #2a1c12; }
+  .sticker .name { font-weight: bold; font-size: 17px; }
+  .sticker .desc { font-size: 14px; color: #6b4a2c; }
+  .sticker .meta { font-size: 13px; color: #2f7a2a; font-weight: bold; }
+  .sticker.locked { background: #f3ece0; border-color: #b49a80; border-style: dashed; }
+  .sticker.locked .icon { background: #e4dccf; border-color: #b49a80; filter: grayscale(1); opacity: .55; }
+  .sticker.locked .meta { color: #8a6a4f; }
+  .bar { height: 8px; border-radius: 4px; background: #e4dccf; overflow: hidden; margin-top: 4px; }
+  .bar span { display: block; height: 100%; background: #7bed9f; }
+  .new { position: absolute; top: -10px; right: 10px; background: #ff5a8a; color: #fff; font-weight: bold; font-size: 12px;
+         border: 2px solid #2a1c12; border-radius: 999px; padding: 1px 8px; }
+  .reward { font-size: 13px; color: #7a3d12; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="page">
+    <header>
+      <a class="back" href="index.html">◂ Menu</a>
+      <h1>Sticker Book</h1>
+      <span class="tally" id="tally" aria-live="polite"></span>
+    </header>
+    <p class="lede">Stickers come from playing either mode. The ones marked with a gift unlock a look in the Workshop
+      that can't be bought with Gum Nuts.</p>
+    <section class="book" id="book" aria-label="Stickers"></section>
+  </div>
+</div>
+<script src="shared/core.js?v=2467b2bd"></script>
+<script src="shared/sound.js?v=aefb19fa"></script>
+<script src="shared/progress.js?v=e6974743"></script>
+<script src="shared/stickers.js?v=5c48788c"></script>
+<script>
+(() => {
+  const S = WB.stickers;
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; };
+  // what was new before this visit (the badge shows once, then it's seen)
+  const isNew = new Set(S.list.filter(s => S.got(s.id)).map(s => s.id));
+  try { const seen = JSON.parse(localStorage.getItem('wombatStickers') || '{}').seen || {}; for(const id of [...isNew]) if(seen[id]) isNew.delete(id); } catch(e){}
+
+  function render(){
+    document.getElementById('tally').textContent = '🏅 ' + S.count() + ' / ' + S.list.length;
+    const book = document.getElementById('book');
+    book.textContent = '';
+    for(const s of S.list){
+      const got = S.got(s.id), card = el('article', 'sticker' + (got ? '' : ' locked'));
+      card.append(el('div', 'icon', s.icon), el('div', 'name', s.name), el('div', 'desc', s.desc));
+      if(got){
+        card.append(el('div', 'meta', '✓ Earned ' + S.gotOn(s.id)));
+        if(isNew.has(s.id)) card.append(el('span', 'new', 'New!'));
+      } else {
+        const p = S.progress(s), wrap = el('div', 'meta');
+        if(p.of > 1){
+          wrap.textContent = p.n.toLocaleString() + ' / ' + p.of.toLocaleString();
+          const bar = el('div', 'bar'), fill = el('span');
+          fill.style.width = (100 * p.n / p.of).toFixed(1) + '%';
+          bar.append(fill); wrap.append(bar);
+        } else wrap.textContent = 'Not yet';
+        card.append(wrap);
+      }
+      if(s.reward){
+        const look = WB.progress.lookById(s.reward);
+        card.append(el('div', 'reward', '🎁 Unlocks ' + (look ? look.name : s.reward) + ' in the Workshop'));
+        card.lastChild.style.gridColumn = '2';
+      }
+      book.append(card);
+    }
+  }
+  render();
+  S.markSeen();
+  window.addEventListener('focus', () => { S.reload(); WB.progress.reload(); render(); });
+})();
+</script>
+</body>
+</html>

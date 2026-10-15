@@ -29,10 +29,11 @@
 <div id="hint"></div>
 <script src="shared/core.js?v=2467b2bd"></script>
 <script src="shared/sound.js?v=aefb19fa"></script>
-<script src="shared/progress.js?v=c7c134fb"></script>
-<script src="shared/art.js?v=f46a9ce4"></script>
+<script src="shared/progress.js?v=e6974743"></script>
+<script src="shared/stickers.js?v=5c48788c"></script>
+<script src="shared/art.js?v=74628cfc"></script>
 <script src="shared/physics.js?v=66864343"></script>
-<script src="shared/wombat.js?v=b52e190a"></script>
+<script src="shared/wombat.js?v=7fb4b1cb"></script>
 <script>
 (() => {
   const { W, H, topPlat, rand, clamp } = WB;
@@ -41,7 +42,7 @@
   const disp = WB.fitDisplay(cv, document.getElementById('wrap'));
   let t = 0;
   const { roundRect, drawButton, drawRoundButton, drawGumNut, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
-          drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine, drawTrail } = WB.createArt(ctx, () => t);
+          drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine, drawTrail, drawStickerToast } = WB.createArt(ctx, () => t);
   const { PAL_PLAYER, PAL_RIVAL, PAL_MATE } = WB;
 
   // =====================================================================
@@ -368,6 +369,7 @@
   }
   // Start the current season afresh, keeping your burrow (and the season number).
   function startSeason(){
+    WB.stickers.seasonFlag('seasonParty', 0);     // for Lone Wombat: no mate along yet this season
     player.charm = 0; player.threat = 0; player.day = 1;
     player.buffs = []; player.debuffs = [];
     L = null; travel = null; toast = null;
@@ -382,6 +384,7 @@
   let seasonEnd = null;
   function endSeason(won){
     seasonEnd = { won, season: player.season, day: player.day, charm: player.charm, threat: player.threat };
+    if(won){ WB.stickers.note('seasons'); if(!WB.stickers.flag('seasonParty')) WB.stickers.note('lone'); }
     if(won) player.season++;
     const shown = mode;
     startSeason();
@@ -392,6 +395,7 @@
   //  LEVEL  — the stacking itself lives in shared/ (same as endless mode)
   // =====================================================================
   let L = null;                // the current level's run (see shared/physics.js)
+  let stickerShow = null;      // a sticker being announced: { s, t0 }
   let shakeX = 0, shakeY = 0;  // this step's screen-shake offset in a level
 
   // The campaign's pile physics: softer than endless mode, with a terminal
@@ -417,7 +421,8 @@
     // Gum Nuts: 1 per poop stacked, 5 more for a golden one
     onSettle: p => {
       if(p.bad){ L.stack[L.stack.length-1].rotT = 150; return; }   // a rival's bad cube: worth nothing, and it rots
-      L.nuts += 1 + L.M.nutPerPoop; if(WB.isGolden(p.hue)){ L.nuts += 5; }   // Big Eater: +1 each
+      L.nuts += 1 + L.M.nutPerPoop; if(WB.isGolden(p.hue)){ L.nuts += 5; WB.stickers.note('golden'); }   // Big Eater: +1 each
+      WB.stickers.note('poops');
       L.stacked++;
       if(L.M.rapidNuts && L.stacked % 2 === 0) L.nuts += 1;          // Rapid Fire: +1 every 2nd
       if(along('forager') && L.stacked % 5 === 0) L.nuts += 1;     // the Forager's find
@@ -435,6 +440,8 @@
       .slice(0, WB.progress.seats())
       .map((m, i) => ({ ...m, x: W/2 - 70*(i+1), crawl: i*1.7, wob: 0, face: 0, blink: 0 }));
     const has = k => party.some(m => m.kind === k);
+    WB.stickers.best('party', party.length);
+    if(party.length) WB.stickers.seasonFlag('seasonParty', 1);
     const tune = WB.progress.tune({ ...TUNE, fallMul:p.fallMul }, M);
     if(has('steady')) tune.damping -= 0.03;
     L = Object.assign(WB.newRun(t, { platW:p.platW + M.widthAdd + (has('builder') ? 20 : 0), tune, hooks,
@@ -574,6 +581,7 @@
             life:rand(14,24), max:24, r:rand(2,4), color:'#7cc743', kind:'splat', g:.25 });
           WB.sfx('crunch');
           evict(g.owner, 'storms off: lettuce snatched, +3 Gum Nuts');
+          WB.stickers.note('lobs');
           continue;
         }
       }
@@ -624,6 +632,7 @@
   // tumbles straight down, then the result shows.
   function startTopple(){
     L.toppling = true;
+    WB.stickers.note('topples');
     for(const c of L.stack){
       c.x = L.plat.x + c.off;
       c.vx = rand(-0.5, 0.5); c.vfall = rand(0, 1.2); c.spin = rand(-0.14, 0.14);
@@ -693,7 +702,8 @@
       L.stacksDone++; L.banking=40;
       const notes = [];
       L.nuts += 5;                                   // a finished stack, and more if it never got wobbly
-      if(L.stackMaxRatio < 0.8){ L.nuts += 10; notes.push('✨ Clean stack! +10 Gum Nuts'); }
+      if(L.stackMaxRatio < 0.8){ L.nuts += 10; notes.push('✨ Clean stack! +10 Gum Nuts'); WB.stickers.note('clean'); }
+      if(L.foes.filter(f => !f.leaving).length >= 3) WB.stickers.note('siege');
       notes.push(evict(L.foes.find(f => !f.leaving), 'runs off', true));   // a finished stack scares one rival away
       if(notes.some(Boolean)) showToast(notes.filter(Boolean).join('   ·   '));
       L.stackMaxRatio = 0;
@@ -725,6 +735,7 @@
         if(player.debuffs.length) player.debuffs.shift();
         const was = node.name, perk = MATE_KINDS[mateKindOf(node)];
         player.household.push({ name: was, kind: mateKindOf(node) });   // she moves into your burrow
+        WB.stickers.note('mates'); WB.stickers.best('burrow', player.household.length);
         respawnNode(node);                       // and a newcomer takes her spot
         showToast(was+' is smitten and joins your burrow! '+perk.icon+' '+perk.name+'  ·  +22 charm'+(b?'  ·  '+b.icon+' '+b.name:'')+nutNote);
       } else showToast(node.name+' was unimpressed…'+nutNote);
@@ -732,6 +743,7 @@
       if(success){
         player.threat = clamp(player.threat-18,0,THREAT_MAX);
         const was = node.name;
+        WB.stickers.note('rivals');
         respawnNode(node);                       // driven off; a newcomer takes the spot
         showToast('You out-stacked '+was+'!  -18 threat'+nutNote);
       } else {
@@ -782,6 +794,7 @@
       drawButton(BTN_MENU, '◂ Menu', '#fff8e7', '#7a3d12', 22);
       drawRoundButton(SOUND_BTN, WB.sound.muted() ? 'muted' : 'sound');
     }
+    if(stickerShow) drawStickerToast(stickerShow.s, t - stickerShow.t0, 190);
     ctx.restore();
 
     // the controls hint sits over the bottom of the game, so it hides during a level
@@ -1242,6 +1255,9 @@
     if(!paused && mode===MODE.LEVEL && L && L.slowmoLeft > 0){ L.slowmoLeft--; if(L.slowmoLeft % 2) return; }
     t++;
     if(toast){ toast.life--; if(toast.life<=0) toast=null; }
+    // a newly earned sticker gets a few seconds on screen, once you're not mid-level
+    if(stickerShow && t - stickerShow.t0 > 240) stickerShow = null;
+    if(!stickerShow && (mode !== MODE.LEVEL || !L || L.result || paused)){ const s = WB.stickers.next(); if(s){ stickerShow = { s, t0: t }; WB.sfx('win'); } }
     if(paused) return;
     if(mode===MODE.TRAVEL){
       travel.p += 0.035;

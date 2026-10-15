@@ -104,7 +104,7 @@ Each idea notes what it builds on in the existing code.
 4. GOALS AND SHOWING OFF
 ------------------------
 
-  4A. Achievements / a sticker book                                       M
+  4A. Achievements / a sticker book            BUILT 2026-10-15 (stickers)  M
       Some examples:
         - "Stack 20 without a wobble warning"
         - "Win a season with no mates along"

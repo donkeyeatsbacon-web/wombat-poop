@@ -125,6 +125,12 @@
     { id:'trail-hearts',  slot:'trail', name:'Hearts',   price:400, icon:'💗' },
     { id:'trail-bubbles', slot:'trail', name:'Bubbles',  price:400, icon:'🫧' },
     { id:'trail-stars',   slot:'trail', name:'Stars',    price:500, icon:'⭐' },
+    // earned with stickers (see shared/stickers.js), not bought
+    { id:'fur-gold',       slot:'fur',   name:'Golden',       price:null, sticker:'golden-50', swatch:'#e8b84a' },
+    { id:'paint-rainbow',  slot:'paint', name:'Rainbow',      price:null, sticker:'clean-10',  swatch:'linear-gradient(#e74c3c,#f39c12,#f1c40f,#2ecc71,#3498db,#9b59b6)' },
+    { id:'trail-confetti', slot:'trail', name:'Confetti',     price:null, sticker:'burrow-12', icon:'🎊' },
+    { id:'hat-halo',       slot:'hat',   name:'Halo',         price:null, sticker:'season-5',  icon:'😇' },
+    { id:'hat-viking',     slot:'hat',   name:'Viking Helmet',price:null, sticker:'all',       icon:'⛑' },
   ];
   const lookById = id => looks.find(l => l.id === id);
 
@@ -141,7 +147,12 @@
   const NO_COS = { owned: {}, on: {} };
   const cosRead = () => state.cos && typeof state.cos === 'object' && state.cos.owned && state.cos.on ? state.cos : NO_COS;
   const cos = () => cosRead() !== NO_COS ? state.cos : (state.cos = { owned: {}, on: {} });
-  const ownsLook = id => { const l = lookById(id); return !!l && (l.price === 0 || !!cosRead().owned[id]); };
+  const ownsLook = id => {
+    const l = lookById(id);
+    if(!l) return false;
+    if(l.sticker) return !!(WB.stickers && WB.stickers.got(l.sticker));
+    return l.price === 0 || !!cosRead().owned[id];
+  };
   function look(){
     const on = cosRead().on, out = {};
     for(const s of SLOTS){
@@ -158,10 +169,15 @@
   }
   function buyLook(id){
     const l = lookById(id);
-    if(!l || ownsLook(id) || state.nuts < l.price) return false;
+    if(!l || l.sticker || ownsLook(id) || state.nuts < l.price) return false;
     state.nuts -= l.price; cos().owned[id] = true;
     cos().on[l.slot] = id;                        // wear it straight away
     save();
+    if(WB.stickers){
+      const bought = looks.filter(o => o.price > 0);
+      WB.stickers.best('looks', bought.filter(o => cos().owned[o.id]).length);
+      if(bought.filter(o => o.slot === 'hat').every(o => cos().owned[o.id])) WB.stickers.best('hats', 1);
+    }
     return true;
   }
 
@@ -191,6 +207,7 @@
     state.nuts -= n.price;
     state.owned[id] = { tier: n.tier, branch: n.branch };
     save();
+    if(WB.stickers){ WB.stickers.note('upgrades'); if(n.tier >= 3) WB.stickers.best('treeMax', 1); }
     return true;
   }
 
@@ -283,7 +300,7 @@
     trees, tree, level, next, buyNext, swap, swapFee, mods, tune, pace, anyOwned, seats, PRICE, priceOf,
     SLOTS, looks, lookById, look, ownsLook, buyLook, wear,
     nuts: () => state.nuts,
-    earn(n){ if(n > 0){ state.nuts += Math.round(n); save(); } },
+    earn(n){ if(n > 0){ state.nuts += Math.round(n); save(); if(WB.stickers) WB.stickers.note('nuts', Math.round(n)); } },
     reload(){ try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if(d && d.v === 1) state = d; } catch(e){} },
   };
 })();

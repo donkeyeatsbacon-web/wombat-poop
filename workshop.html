@@ -112,8 +112,9 @@
 </div>
 <script src="shared/core.js?v=2467b2bd"></script>
 <script src="shared/sound.js?v=aefb19fa"></script>
-<script src="shared/progress.js?v=c7c134fb"></script>
-<script src="shared/art.js?v=f46a9ce4"></script>
+<script src="shared/progress.js?v=e6974743"></script>
+<script src="shared/stickers.js?v=5c48788c"></script>
+<script src="shared/art.js?v=74628cfc"></script>
 <script>
 (() => {
   const P = WB.progress;
@@ -227,7 +228,7 @@
     if(!l.icon) sw.style.background = l.swatch;
     b.append(sw, el('span', '', esc(l.name)));
     if(P.ownsLook(l.id)){ if(P.look()[l.slot] === l.id) b.append(el('span', 'cost', '✓')); }
-    else b.append(el('span', 'cost', nuts(l.price)));
+    else b.append(el('span', 'cost', l.sticker ? '🏅 sticker' : nuts(l.price)));
     b.setAttribute('aria-pressed', String(P.look()[l.slot] === l.id));
     b.addEventListener('click', () => {
       if(P.ownsLook(l.id)){ P.wear(l.id); trying = null; WB.sfx('click'); }
@@ -251,13 +252,18 @@
     if(trying){
       const l = P.lookById(trying);
       tryon.append(el('div', 'name', esc('Trying on: ' + l.name)));
+      if(l.sticker){
+        const s = WB.stickers.list.find(o => o.id === l.sticker);
+        tryon.append(el('div', '', esc('Earn the ' + s.icon + ' ' + s.name + ' sticker to wear this: ' + s.desc.replace(/\.$/, '').toLowerCase() + '.')));
+        return;
+      }
       const b = el('button', '', 'Buy & wear · ' + nuts(l.price));
       b.type = 'button';
       if(P.nuts() < l.price){ b.disabled = true; b.innerHTML = 'Need ' + nuts(l.price); }
       b.addEventListener('click', () => { if(P.buyLook(l.id)){ trying = null; WB.sfx('levelup'); render(); renderLooks(); } });
       tryon.append(b);
     } else {
-      const names = P.SLOTS.map(s => P.lookById(lk[s.id])).filter(l => l.price > 0).map(l => l.name);
+      const names = P.SLOTS.map(s => P.lookById(lk[s.id])).filter(l => l.price !== 0).map(l => l.name);
       tryon.append(el('div', 'name', 'Wearing'), el('div', '', esc(names.length ? names.join(', ') : 'the classic look')));
     }
   }

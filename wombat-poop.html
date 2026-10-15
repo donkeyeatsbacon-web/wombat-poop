@@ -68,10 +68,11 @@
 </div>
 <script src="shared/core.js?v=2467b2bd"></script>
 <script src="shared/sound.js?v=aefb19fa"></script>
-<script src="shared/progress.js?v=c7c134fb"></script>
-<script src="shared/art.js?v=f46a9ce4"></script>
+<script src="shared/progress.js?v=e6974743"></script>
+<script src="shared/stickers.js?v=5c48788c"></script>
+<script src="shared/art.js?v=74628cfc"></script>
 <script src="shared/physics.js?v=66864343"></script>
-<script src="shared/wombat.js?v=b52e190a"></script>
+<script src="shared/wombat.js?v=7fb4b1cb"></script>
 <script>
 (() => {
   const { W, H, GRAV, rand, clamp } = WB;
@@ -80,7 +81,7 @@
   const disp = WB.fitDisplay(cv, document.getElementById('wrap'));
   let t = 0;
   const { roundRect, drawButton, drawRoundButton, drawGumNut, drawPoop, drawStack, drawWombatArt, drawPlatform, drawTopPlat,
-          drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine, drawTrail } = WB.createArt(ctx, () => t);
+          drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine, drawTrail, drawStickerToast } = WB.createArt(ctx, () => t);
 
   // ---------- Game state ----------
   const STATE = { MENU: 0, PLAY: 1, TOPPLE: 2, OVER: 3 };
@@ -143,6 +144,7 @@
   let notice = null;                     // a short message mid-screen: { text, life }
   const say = text => { notice = { text, life: 90 }; };
   let toppleTimer = 0;
+  let stickerShow = null;                 // a sticker being announced: { s, t0 }
   let danger = 0;   // 0 = rock solid, 1 = about to topple (wobble meter)
   // camera / climbing mechanic
   let camTarget = 0;                      // camera eases S.camOffset toward this
@@ -177,7 +179,8 @@
       score += Math.round(Math.max(1, Math.round(p.w/12)) * M.scoreMul); tutorialDone();
       earn(1 + M.nutPerPoop);                                   // Big Eater: +1 each
       if(M.rapidNuts && (S.stacked = (S.stacked||0) + 1) % 2 === 0) earn(1);        // Rapid Fire: +1 every 2nd
-      if(WB.isGolden(p.hue)){ earn(5); say('✨ Golden poop! +5'); }
+      if(WB.isGolden(p.hue)){ earn(5); say('✨ Golden poop! +5'); WB.stickers.note('golden'); }
+      WB.stickers.note('poops');
     },
     onSnub: () => say('🙅 Picky eater: no lettuce, thanks'),
     onBoardDrop: () => { if(M.gutter) earn(1); },
@@ -302,6 +305,7 @@
   // ---------- Toppling ----------
   function beginTopple(dir){
     state = STATE.TOPPLE;
+    WB.stickers.note('topples');
     toppleTimer = 0;
     for(const c of S.stack){
       c.x = S.plat.x + c.off;         // freeze current world x, then fall straight
@@ -355,6 +359,9 @@
     // Slow-Mo upgrade: the game runs at half speed for a moment
     if(slowmoLeft > 0){ slowmoLeft--; if(slowmoLeft % 2) return; }
     t++;
+    // a newly earned sticker gets a few seconds on screen, once you're not mid-run
+    if(stickerShow && t - stickerShow.t0 > 240) stickerShow = null;
+    if(!stickerShow && (state !== STATE.PLAY || paused)){ const s = WB.stickers.next(); if(s){ stickerShow = { s, t0: t }; WB.sfx('win'); } }
     if(S.shake > 0) S.shake *= 0.85;
     if(notice && --notice.life <= 0) notice = null;
     if(S.comboFlash>0) S.comboFlash--;
@@ -388,8 +395,10 @@
         if(stackTopScreen <= goalScreenY){
           raising = true; level++;
           WB.sfx('levelup');
+          WB.stickers.best('endlessLevel', level);
+          if(!upgraded) WB.stickers.best('classicLevel', level);
           earn(5);
-          if(levelMaxDanger < 0.8){ earn(10); say('✨ Clean climb! +10'); }   // no wobble warnings this level
+          if(levelMaxDanger < 0.8){ earn(10); say('✨ Clean climb! +10'); WB.stickers.note('clean'); }   // no wobble warnings this level
           levelMaxDanger = 0; anchorReady = true; slowmoReady = true;
           if(M.extendo){ WB.setPlatBonus(S, 20); extendT = 300; }
           S.raiseBaseY = WB.stackTopWorldY(S);           // reset the wobble reference for the new level
@@ -638,6 +647,8 @@
       drawButton(BTN_QUIT,   '🏠 Main menu', '#fff8e7', '#7a3d12');
       drawButton(BTN_SOUND,  WB.sound.muted() ? '🔇 Sound: off' : '🔊 Sound: on', '#fff8e7', '#7a3d12');
     }
+
+    if(stickerShow) drawStickerToast(stickerShow.s, t - stickerShow.t0, 190);
 
     // the cursor only hides while you're steering the platform with it
     const playing = state === STATE.PLAY && !paused;

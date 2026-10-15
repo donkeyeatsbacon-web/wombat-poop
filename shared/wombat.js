@@ -128,6 +128,7 @@
         S.diarrheaX = wombat.x;                       // it drips from right here for the duration
         S.nextSpawn = t + 1e9;                        // no normal poops meanwhile
         WB.sfx('gurgle');
+        if(WB.stickers) WB.stickers.note('lettuce');
         wombat.mode = 'crawl';
       }
 

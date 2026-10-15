@@ -26,6 +26,7 @@
     'fur-sandy':    { fur:'#b8925e', shade:'#8d6c41', light:'#e6cfa6', belly:'#cdb08a', earIn:'#e8b7a0' },
     'fur-ginger':   { fur:'#b8703c', shade:'#8a4f26', light:'#efc9a0', belly:'#d0905c', earIn:'#f0a890' },
     'fur-midnight': { fur:'#4a4440', shade:'#332e2b', light:'#8a817a', belly:'#5f5852', earIn:'#a87f78' },
+    'fur-gold':     { fur:'#e0ac3c', shade:'#b07f1c', light:'#fbe3a0', belly:'#f0c860', earIn:'#f5c7a0' },
     'fur-snowy':    { fur:'#e9e4dc', shade:'#bdb5a9', light:'#ffffff', belly:'#f6f1ea', earIn:'#f2b8c0', nose:'#5a4a44' },
   };
   const BANDS = {
@@ -39,6 +40,7 @@
     'paint-red':   { top:'#d9534f', low:'#a33a37' }, 'paint-blue':  { top:'#4a90d9', low:'#2f63a3' },
     'paint-green': { top:'#6bbf59', low:'#468a3a' }, 'paint-night': { top:'#3b3f58', low:'#262a3d' },
     'paint-candy': { top:'#fdf6ec', low:'rgba(110,50,30,.2)', stripes:'#e74c3c' }, 'paint-gold':  { top:'#f2c230', low:'#cf9418' },
+    'paint-rainbow': { top:'#e74c3c', low:'rgba(42,28,18,.18)', rainbow:true },
   };
   // (the Workshop sets WB.lookPreview to try a look on before buying it)
   const lookNow = () => WB.lookPreview || (WB.progress && WB.progress.look ? WB.progress.look() : null);
@@ -353,6 +355,22 @@
         ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(hx - 14, -180); ctx.lineTo(hx - 14, -164); ctx.stroke();
         ctx.strokeStyle = INK; ctx.lineWidth = 4;
         ell(hx, -145, 42, 8); inked('#2b2b2b');
+      } else if(id === 'hat-halo'){
+        const bob = Math.sin(t*0.08)*3;
+        ctx.lineWidth = 3; ell(hx, -164 + bob, 30, 8); ctx.stroke();
+        ctx.strokeStyle = '#ffe14d'; ctx.lineWidth = 6; ell(hx, -164 + bob, 30, 8); ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(hx, -164 + bob, 30, 8, 0, Math.PI*1.1, Math.PI*1.5); ctx.stroke();
+        ctx.strokeStyle = INK;
+      } else if(id === 'hat-viking'){
+        for(const side of [-1, 1]){                 // horns first, so the helmet sits over their roots
+          ctx.beginPath(); ctx.moveTo(hx + side*30, -150); ctx.quadraticCurveTo(hx + side*58, -152, hx + side*56, -184);
+          ctx.quadraticCurveTo(hx + side*46, -164, hx + side*26, -162); ctx.closePath(); inked('#f6ecd8');
+        }
+        ctx.beginPath(); ctx.ellipse(hx, -142, 38, 28, 0, Math.PI, TAU); ctx.closePath(); inked('#9aa3ad');
+        roundRect(hx - 40, -148, 80, 12, 5); inked('#6f7883');
+        ctx.fillStyle = INK; for(const dx of [-26, -9, 9, 26]){ ell(hx + dx, -142, 2.2, 2.2); ctx.fill(); }
+        ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(hx - 4, -150, 26, 18, 0, Math.PI*1.15, Math.PI*1.45); ctx.stroke();
+        ctx.strokeStyle = INK;
       } else if(id === 'hat-crown'){
         ctx.beginPath(); ctx.moveTo(hx - 30, -142); ctx.lineTo(hx - 32, -170); ctx.lineTo(hx - 16, -158); ctx.lineTo(hx, -176);
         ctx.lineTo(hx + 16, -158); ctx.lineTo(hx + 32, -170); ctx.lineTo(hx + 30, -142); ctx.closePath(); inked('#f2c230');
@@ -385,8 +403,36 @@
           ell(x, y, r*0.8, r*0.8); ctx.fill(); ctx.stroke();
         } else if(lk.trail === 'trail-stars'){
           drawStar(x, y, r, '#ffe14d');
+        } else if(lk.trail === 'trail-confetti'){
+          for(let j = 0; j < 3; j++){
+            ctx.save(); ctx.translate(x + (j - 1)*r*0.9, y + (j % 2)*r*0.5); ctx.rotate(now()*0.15 + k + j*2);
+            ctx.fillStyle = RAINBOW[(k*3 + j) % 6]; ctx.fillRect(-r*0.35, -r*0.2, r*0.7, r*0.4); ctx.restore();
+          }
         }
       }
+      ctx.restore();
+    }
+
+    // "Sticker earned!" (see shared/stickers.js): a card that drops in from the
+    // top for a few seconds. age = frames since it appeared.
+    function drawStickerToast(s, age, y){
+      const inT = Math.min(1, age/14), outT = Math.min(1, Math.max(0, (240 - age)/16));
+      const k = Math.min(inT, outT), yy = (y || 200) - (1 - k)*40;
+      const reward = s.reward && WB.progress && WB.progress.lookById(s.reward);
+      const w = 440, h = reward ? 100 : 82, x = W/2 - w/2;
+      ctx.save(); ctx.globalAlpha = k;
+      ctx.fillStyle = 'rgba(0,0,0,.18)'; roundRect(x + 4, yy + 6, w, h, 18); ctx.fill();
+      ctx.lineWidth = 4; ctx.strokeStyle = INK; roundRect(x, yy, w, h, 18); inked('#fff8e7');
+      ell(x + 48, yy + h/2, 32, 32); inked('#ffe14d');
+      ctx.font = '34px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000';
+      ctx.fillText(s.icon, x + 48, yy + h/2 + 2);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#8a6a4f'; ctx.font = 'bold 15px "Comic Neue", "Comic Sans MS", cursive';
+      ctx.fillText('🏅 STICKER EARNED', x + 94, yy + 30);
+      ctx.fillStyle = '#5a2d0c'; ctx.font = 'bold 26px "Comic Neue", "Comic Sans MS", cursive';
+      ctx.fillText(s.name, x + 94, yy + 60);
+      if(reward){ ctx.fillStyle = '#2f7a2a'; ctx.font = 'bold 16px "Comic Neue", "Comic Sans MS", cursive';
+        ctx.fillText('Unlocked a new look: ' + reward.name, x + 94, yy + 86); }
       ctx.restore();
     }
 
@@ -395,6 +441,7 @@
     function plank(x, y, w, h, r, grainStep, grainStart, paint){
       ctx.fillStyle = paint ? paint.top : '#c98b4a'; roundRect(x, y, w, h, r); ctx.fill();
       ctx.save(); ctx.clip();
+      if(paint && paint.rainbow) RAINBOW.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(x, y + i*h/6, w, h/6 + 0.5); });
       if(paint && paint.stripes){
         ctx.fillStyle = paint.stripes;
         for(let sx = x - h; sx < x + w; sx += 18){ ctx.beginPath(); ctx.moveTo(sx, y + h); ctx.lineTo(sx + 9, y + h); ctx.lineTo(sx + 9 + h, y); ctx.lineTo(sx + h, y); ctx.closePath(); ctx.fill(); }
@@ -585,7 +632,7 @@
       ctx.restore();
     }
 
-    return { roundRect, drawButton, drawGumNut, drawRoundButton, drawPoop, drawPuddle, drawStack, drawWombatArt, drawPlatform, drawTopPlat, drawTrail, drawHat,
+    return { roundRect, drawButton, drawGumNut, drawRoundButton, drawPoop, drawPuddle, drawStack, drawWombatArt, drawPlatform, drawTopPlat, drawTrail, drawHat, drawStickerToast,
              drawLettuce, drawDiarrhea, drawParticles, drawGround, drawGoalLine };
   };
 })();

@@ -82,6 +82,15 @@ colours, headbands, hats, platform paint and a trail behind falling poops. Tap
 any of them to try it on in the preview before you buy; anything you own can be
 swapped in for free.
 
+### Stickers
+
+The **Sticker Book** (from the front page) has 32 stickers to collect from
+either mode: stacking milestones, golden poops, endless levels, wooing mates,
+beating rivals, winning seasons, and a few Workshop goals. Stickers you earn
+mid-run are announced when the run or level ends. Five of them unlock a look
+that can't be bought: Golden fur, Rainbow paint, a Confetti trail, a Halo and,
+for the whole book, a Viking Helmet.
+
 Upgrades always apply in the campaign. Endless can be played **Upgraded** or
 **Classic** (stock), each with its own top 5; the switch appears on endless
 mode's title screen once you own an upgrade.
@@ -127,7 +136,9 @@ There's no build step and there are no dependencies, just HTML and plain JavaScr
 | `shared/physics.js` | Falling poops, stacking, the wobble, melting and collapse, particles |
 | `shared/wombat.js` | The wombat's crawl, poop and lettuce-eating routine |
 | `shared/progress.js` | Gum Nuts, the upgrade catalogue and prices, and what each upgrade changes |
-| `workshop.html` | The Workshop: buying and switching upgrades |
+| `workshop.html` | The Workshop: buying and switching upgrades, and looks |
+| `stickers.html` | The Sticker Book |
+| `shared/stickers.js` | The sticker catalogue, counters and what each one needs |
 | `shared/sound.js` | Sound effects, synthesised in code (no audio files), and the mute setting |
 | `shared/art.js` | Drawing of the wombats, poops, platforms, lettuce, ground and goal line |
 | `shared/base.css` | Page layout shared by both modes, and the bundled font |
@@ -158,7 +169,8 @@ Everything is kept in the browser's `localStorage`:
   and Upgraded (`wombatPoopHigh` keeps just the Classic best, for older
   front pages; `wombatPoopName` remembers the last name typed;
   `wombatPoopMode` remembers Classic or Upgraded)
-- `wombatProgress`: your Gum Nuts and the upgrades you own
+- `wombatProgress`: your Gum Nuts, the upgrades you own and your looks
+- `wombatStickers`: stickers earned and the counts toward the rest
 - `wombatCampaignSave`: the campaign in progress
 - `wombatMuted`: whether sound is off
 - `wombatTutorialDone`, `wombatCampaignTutorialDone`: the first-play tips have
