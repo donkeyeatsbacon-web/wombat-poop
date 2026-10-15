@@ -77,6 +77,11 @@ where they come from, how it copes with lettuce and how fast they come. In
 each tree the second tier makes you pick one of two branches (you can switch
 later for a fee). The Burrow's upgrades add seats for mates in the campaign.
 
+The Workshop also sells **looks**, which change nothing about play: fur
+colours, headbands, hats, platform paint and a trail behind falling poops. Tap
+any of them to try it on in the preview before you buy; anything you own can be
+swapped in for free.
+
 Upgrades always apply in the campaign. Endless can be played **Upgraded** or
 **Classic** (stock), each with its own top 5; the switch appears on endless
 mode's title screen once you own an upgrade.

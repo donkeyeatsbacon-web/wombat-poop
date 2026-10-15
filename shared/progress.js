@@ -10,6 +10,9 @@
 //   WB.progress.mods(on)           what the owned upgrades change, for a run
 //                                  (on=false gives the stock game: Classic)
 //   WB.progress.pace(r, mid, M)    a poop gap's random part, evened out by Rhythm
+//   WB.progress.looks / .SLOTS     the cosmetics catalogue (pure looks, no effect)
+//   WB.progress.look()             { fur, band, hat, paint, trail }: what's being worn
+//   WB.progress.ownsLook(id) / buyLook(id) / wear(id)
 //
 // Trees come in groups: 'platform' (the catch platform), 'wombat' (the pooper:
 // what it gives you to catch) and 'burrow' (seats for mates).
@@ -79,6 +82,52 @@
       b:[{ name:'Rapid Fire', desc:'Poops come 15% faster, but each is worth 50% more points in endless, and every 2nd one stacked earns an extra Gum Nut.' }] },
   ];
 
+  // Cosmetics: pure looks, no effect on play. One worn per slot; each slot's
+  // first item is the stock look, free and owned from the start.
+  const SLOTS = [
+    { id:'fur',   name:'Fur',      icon:'🐾' },
+    { id:'band',  name:'Headband', icon:'🎀' },
+    { id:'hat',   name:'Hat',      icon:'🎩' },
+    { id:'paint', name:'Platform paint', icon:'🖌' },
+    { id:'trail', name:'Poop trail',     icon:'✨' },
+  ];
+  const looks = [
+    { id:'fur-common',   slot:'fur', name:'Common',   price:0,   swatch:'#8c7d6e' },
+    { id:'fur-sandy',    slot:'fur', name:'Sandy',    price:400, swatch:'#b8925e' },
+    { id:'fur-ginger',   slot:'fur', name:'Ginger',   price:400, swatch:'#b8703c' },
+    { id:'fur-midnight', slot:'fur', name:'Midnight', price:500, swatch:'#4a4440' },
+    { id:'fur-snowy',    slot:'fur', name:'Snowy',    price:700, swatch:'#e9e4dc' },
+    { id:'band-green',   slot:'band', name:'Bush Green', price:0,   swatch:'#2f8a3a' },
+    { id:'band-blue',    slot:'band', name:'Royal Blue', price:150, swatch:'#2f63c9' },
+    { id:'band-orange',  slot:'band', name:'Sunset',     price:150, swatch:'#ef7d22' },
+    { id:'band-pink',    slot:'band', name:'Hot Pink',   price:150, swatch:'#e0569b' },
+    { id:'band-purple',  slot:'band', name:'Purple',     price:150, swatch:'#7a3fb8' },
+    { id:'band-black',   slot:'band', name:'Ninja',      price:250, swatch:'#2b2b2b' },
+    { id:'band-gold',    slot:'band', name:'Gold',       price:400, swatch:'#e8b420' },
+    { id:'band-rainbow', slot:'band', name:'Rainbow',    price:600, swatch:'linear-gradient(#e74c3c,#f39c12,#f1c40f,#2ecc71,#3498db,#9b59b6)' },
+    { id:'hat-none',      slot:'hat', name:'No hat',        price:0,   icon:'🚫' },
+    { id:'hat-party',     slot:'hat', name:'Party Hat',     price:250, icon:'🥳' },
+    { id:'hat-beanie',    slot:'hat', name:'Bobble Beanie', price:300, icon:'🧶' },
+    { id:'hat-flowers',   slot:'hat', name:'Flower Crown',  price:400, icon:'🌼' },
+    { id:'hat-propeller', slot:'hat', name:'Propeller Cap', price:500, icon:'🚁' },
+    { id:'hat-cowboy',    slot:'hat', name:'Cowboy Hat',    price:600, icon:'🤠' },
+    { id:'hat-tophat',    slot:'hat', name:'Top Hat',       price:700, icon:'🎩' },
+    { id:'hat-crown',     slot:'hat', name:'Crown',         price:1000, icon:'👑' },
+    { id:'paint-wood',    slot:'paint', name:'Natural Wood', price:0,   swatch:'#c98b4a' },
+    { id:'paint-red',     slot:'paint', name:'Cherry',       price:200, swatch:'#d9534f' },
+    { id:'paint-blue',    slot:'paint', name:'Ocean',        price:200, swatch:'#4a90d9' },
+    { id:'paint-green',   slot:'paint', name:'Leaf',         price:200, swatch:'#6bbf59' },
+    { id:'paint-night',   slot:'paint', name:'Midnight',     price:300, swatch:'#3b3f58' },
+    { id:'paint-candy',   slot:'paint', name:'Candy Stripe', price:500, swatch:'repeating-linear-gradient(45deg,#fff 0 6px,#e74c3c 6px 12px)' },
+    { id:'paint-gold',    slot:'paint', name:'Gold Leaf',    price:800, swatch:'#f2c230' },
+    { id:'trail-none',    slot:'trail', name:'No trail', price:0,   icon:'🚫' },
+    { id:'trail-sparkle', slot:'trail', name:'Sparkles', price:300, icon:'✨' },
+    { id:'trail-hearts',  slot:'trail', name:'Hearts',   price:400, icon:'💗' },
+    { id:'trail-bubbles', slot:'trail', name:'Bubbles',  price:400, icon:'🫧' },
+    { id:'trail-stars',   slot:'trail', name:'Stars',    price:500, icon:'⭐' },
+  ];
+  const lookById = id => looks.find(l => l.id === id);
+
   // ---------- storage ----------
   let state = { v: 1, nuts: 0, owned: {} };
   try {
@@ -86,6 +135,35 @@
     if(d && d.v === 1 && Number.isFinite(d.nuts) && d.owned && typeof d.owned === 'object') state = d;
   } catch(e){}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} };
+
+  // cosmetics live in state.cos = { owned: {id: true}, on: {slot: id} }
+  // (reading never adds it to the save; buying or wearing does)
+  const NO_COS = { owned: {}, on: {} };
+  const cosRead = () => state.cos && typeof state.cos === 'object' && state.cos.owned && state.cos.on ? state.cos : NO_COS;
+  const cos = () => cosRead() !== NO_COS ? state.cos : (state.cos = { owned: {}, on: {} });
+  const ownsLook = id => { const l = lookById(id); return !!l && (l.price === 0 || !!cosRead().owned[id]); };
+  function look(){
+    const on = cosRead().on, out = {};
+    for(const s of SLOTS){
+      const id = on[s.id];
+      out[s.id] = id && ownsLook(id) && lookById(id).slot === s.id ? id : looks.find(l => l.slot === s.id).id;
+    }
+    return out;
+  }
+  function wear(id){
+    const l = lookById(id);
+    if(!l || !ownsLook(id)) return false;
+    cos().on[l.slot] = id; save();
+    return true;
+  }
+  function buyLook(id){
+    const l = lookById(id);
+    if(!l || ownsLook(id) || state.nuts < l.price) return false;
+    state.nuts -= l.price; cos().owned[id] = true;
+    cos().on[l.slot] = id;                        // wear it straight away
+    save();
+    return true;
+  }
 
   const tree = id => trees.find(t => t.id === id);
   const maxTier = t => 1 + Math.max(t.a.length, t.b.length);
@@ -203,6 +281,7 @@
 
   WB.progress = {
     trees, tree, level, next, buyNext, swap, swapFee, mods, tune, pace, anyOwned, seats, PRICE, priceOf,
+    SLOTS, looks, lookById, look, ownsLook, buyLook, wear,
     nuts: () => state.nuts,
     earn(n){ if(n > 0){ state.nuts += Math.round(n); save(); } },
     reload(){ try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if(d && d.v === 1) state = d; } catch(e){} },

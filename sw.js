@@ -5,7 +5,7 @@
 //
 // tools/bump-version.js rewrites CACHE and PRECACHE: CACHE changes whenever any
 // file changes, which makes browsers install this worker afresh.
-const CACHE = 'wombat-29464475';
+const CACHE = 'wombat-03fd32e5';
 const PRECACHE = [
   './',
   'index.html',
@@ -13,11 +13,11 @@ const PRECACHE = [
   'wombat-poop.html',
   'workshop.html',
   'manifest.webmanifest',
-  'shared/art.js?v=10b403ae',
+  'shared/art.js?v=f46a9ce4',
   'shared/base.css?v=30c6dc38',
   'shared/core.js?v=2467b2bd',
   'shared/physics.js?v=66864343',
-  'shared/progress.js?v=ac5f361a',
+  'shared/progress.js?v=c7c134fb',
   'shared/sound.js?v=aefb19fa',
   'shared/wombat.js?v=b52e190a',
   'shared/fonts/comic-neue-400.woff2',

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Workshop · Combat Wombat</title>
-<meta name="description" content="Spend Gum Nuts on upgrades for your catch platform and your wombat.">
+<meta name="description" content="Spend Gum Nuts on upgrades and new looks for your catch platform and your wombat.">
 <meta name="theme-color" content="#6ab04c">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -51,6 +51,28 @@
   .earn h2 { font-size: 20px; margin-bottom: 4px; }
   .earn ul { padding-left: 20px; display: grid; gap: 2px; }
   .nut { width: 1.1em; height: 1.1em; flex: none; }
+  .looks { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .preview { background: #fff8e7; border: 4px solid #7a3d12; border-radius: 18px; padding: 12px; display: grid; gap: 10px; justify-items: center;
+             position: sticky; top: 12px; color: #5a2d0c; }
+  .preview canvas { width: 100%; max-width: 260px; aspect-ratio: 260 / 280; border-radius: 12px; background: linear-gradient(#bfe6ff, #e6f6ff); }
+  .tryon { display: grid; gap: 6px; justify-items: center; text-align: center; min-height: 64px; }
+  .tryon .name { font-weight: bold; font-size: 18px; }
+  .tryon button { font: inherit; font-weight: bold; font-size: 15px; cursor: pointer; border-radius: 10px; border: 3px solid #4a7a25;
+                  background: #7bed9f; color: #14532d; padding: 4px 12px; display: inline-flex; align-items: center; gap: 6px; }
+  .tryon button:disabled { background: #eee; border-color: #aaa; color: #777; cursor: default; }
+  .slots { display: grid; gap: 12px; min-width: 0; }
+  .slot { background: #fff8e7; border: 4px solid #7a3d12; border-radius: 18px; padding: 10px 14px 12px; color: #5a2d0c; }
+  .slot h3 { font-size: 19px; margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font: inherit; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px;
+          border: 3px solid #c9a27a; border-radius: 999px; background: #fff; color: #5a2d0c; }
+  .chip .sw { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid #2a1c12; flex: none; display: grid; place-items: center; font-size: 14px; }
+  .chip .sw.icon { border: none; font-size: 18px; }
+  .chip .cost { color: #8a6a4f; font-size: 12px; display: inline-flex; align-items: center; gap: 2px; }
+  .chip.worn { border-color: #3f8f3a; background: #effae8; font-weight: bold; }
+  .chip.trying { outline: 4px solid #ffe14d; outline-offset: 1px; }
+  .chip:focus-visible, .tryon button:focus-visible { outline: 4px solid #ffe14d; outline-offset: 2px; }
+  @media (max-width: 640px){ .looks { grid-template-columns: 1fr; } .preview { position: static; } }
   @media (max-width: 420px){ .tier.split { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -67,6 +89,17 @@
       In each tree the second tier is a choice of two branches: taking one locks the other, but you can switch later
       for a fee.</p>
     <div id="trees"></div>
+    <section class="group" aria-label="Your looks">
+      <h2>🎨 Your looks</h2>
+      <p>Pure looks, no effect on play. Tap anything to try it on; your wombat wears it in both modes.</p>
+      <div class="looks">
+        <div class="preview">
+          <canvas id="preview" aria-label="Your wombat wearing the look you're trying on"></canvas>
+          <div class="tryon" id="tryon" aria-live="polite"></div>
+        </div>
+        <div class="slots" id="slots"></div>
+      </div>
+    </section>
     <section class="earn">
       <h2>Earning Gum Nuts</h2>
       <ul>
@@ -79,7 +112,8 @@
 </div>
 <script src="shared/core.js?v=2467b2bd"></script>
 <script src="shared/sound.js?v=aefb19fa"></script>
-<script src="shared/progress.js?v=ac5f361a"></script>
+<script src="shared/progress.js?v=c7c134fb"></script>
+<script src="shared/art.js?v=f46a9ce4"></script>
 <script>
 (() => {
   const P = WB.progress;
@@ -179,9 +213,80 @@
       host.append(card);
     }
   }
+  // ---------- looks (cosmetics) ----------
+  let trying = null;                       // an item being tried on (not yet worn)
+  function previewLook(){
+    const lk = P.look();
+    if(trying){ const l = P.lookById(trying); lk[l.slot] = l.id; }
+    return lk;
+  }
+  function chip(l, lk){
+    const b = el('button', 'chip' + (lk[l.slot] === l.id && !trying ? ' worn' : '') + (trying === l.id ? ' trying' : ''));
+    b.type = 'button';
+    const sw = l.icon ? el('span', 'sw icon', l.icon) : el('span', 'sw');
+    if(!l.icon) sw.style.background = l.swatch;
+    b.append(sw, el('span', '', esc(l.name)));
+    if(P.ownsLook(l.id)){ if(P.look()[l.slot] === l.id) b.append(el('span', 'cost', '✓')); }
+    else b.append(el('span', 'cost', nuts(l.price)));
+    b.setAttribute('aria-pressed', String(P.look()[l.slot] === l.id));
+    b.addEventListener('click', () => {
+      if(P.ownsLook(l.id)){ P.wear(l.id); trying = null; WB.sfx('click'); }
+      else trying = trying === l.id ? null : l.id;
+      renderLooks();
+    });
+    return b;
+  }
+  function renderLooks(){
+    const host = document.getElementById('slots'), lk = P.look();
+    host.textContent = '';
+    for(const s of P.SLOTS){
+      const card = el('div', 'slot');
+      card.append(el('h3', '', esc(s.icon + ' ' + s.name)));
+      const chips = el('div', 'chips');
+      for(const l of P.looks.filter(l => l.slot === s.id)) chips.append(chip(l, lk));
+      card.append(chips); host.append(card);
+    }
+    const tryon = document.getElementById('tryon');
+    tryon.textContent = '';
+    if(trying){
+      const l = P.lookById(trying);
+      tryon.append(el('div', 'name', esc('Trying on: ' + l.name)));
+      const b = el('button', '', 'Buy & wear · ' + nuts(l.price));
+      b.type = 'button';
+      if(P.nuts() < l.price){ b.disabled = true; b.innerHTML = 'Need ' + nuts(l.price); }
+      b.addEventListener('click', () => { if(P.buyLook(l.id)){ trying = null; WB.sfx('levelup'); render(); renderLooks(); } });
+      tryon.append(b);
+    } else {
+      const names = P.SLOTS.map(s => P.lookById(lk[s.id])).filter(l => l.price > 0).map(l => l.name);
+      tryon.append(el('div', 'name', 'Wearing'), el('div', '', esc(names.length ? names.join(', ') : 'the classic look')));
+    }
+  }
+
+  // the preview: your wombat on its plank, a poop dropping onto the platform
+  const cv = document.getElementById('preview'), ctx = cv.getContext('2d');
+  const CW = 260, CH = 280, dpr = Math.min(window.devicePixelRatio || 1, 3);
+  cv.width = CW * dpr; cv.height = CH * dpr;
+  let t = 0;
+  const art = WB.createArt(ctx, () => t);
+  WB.runLoop(() => { t++; }, () => {
+    WB.lookPreview = previewLook();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, CW, CH);
+    const crawl = t * 0.1;
+    art.drawWombatArt({ x: CW/2, y: 125 + Math.sin(crawl)*2, face: Math.sin(t*0.015)*0.8, strain: 0,
+      crawl, wob: Math.sin(crawl)*3, mode: 'crawl', timer: 0, blink: (t % 200) < 8 ? 1 : 0 }, 0.8, WB.PAL_PLAYER, {});
+    const k = (t % 90) / 90, py = 190 + k*k*56;          // a poop falling onto the platform, again and again
+    const p = { x: CW/2 + 20, y: py, w: 34, h: 34, vx: 0, vy: 1.5 + k*6, born: 0 };
+    art.drawTrail(p);
+    art.drawPoop(p.x, p.y, p.w, p.h, 0.1, 1, 0);
+    art.drawPlatform({ x: CW/2, y: CH - 8, w: 150, h: 22 });
+    WB.lookPreview = null;
+  });
+
   render();
+  renderLooks();
   // another tab (a game) may have earned more meanwhile
-  window.addEventListener('focus', () => { P.reload(); render(); });
+  window.addEventListener('focus', () => { P.reload(); render(); renderLooks(); });
 })();
 </script>
 </body>

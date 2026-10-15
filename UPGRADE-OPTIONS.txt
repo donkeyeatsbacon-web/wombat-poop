@@ -516,7 +516,26 @@ BUILT: the wombat tree (branch wombat-tree, 2026-10-14)
     campaign; Aim, Tummy and Rhythm stop at tier 2, as in the options.
   - With nothing owned (and in Classic), play is exactly as before.
 
-Next slice: cosmetics.
+BUILT: cosmetics (branch cosmetics, 2026-10-15)
+-----------------------------------------------
+  - "Your looks" in the Workshop: five slots, one worn in each, bought once
+    and swapped for free. Tap to try one on in a live preview first.
+      Fur (4): Sandy, Ginger, Midnight, Snowy                    400-700
+      Headband (7): Royal Blue, Sunset, Hot Pink, Purple, Ninja,
+                    Gold, Rainbow                                150-600
+      Hat (7): Party Hat, Bobble Beanie, Flower Crown, Propeller
+               Cap, Cowboy Hat, Top Hat, Crown                   250-1000
+      Platform paint (6): Cherry, Ocean, Leaf, Midnight, Candy
+                          Stripe, Gold Leaf                      200-800
+      Poop trail (4): Sparkles, Hearts, Bubbles, Stars           300-500
+  - Worn by your wombat everywhere: both modes, the campaign map and the
+    front page. Rivals and mates keep their own colours.
+  - Pure looks: with the stock look, every frame draws exactly as before.
+  - The top plank sits close to the top of the screen, so in play the tips of
+    the tallest hats are cut off by the screen edge.
+
+All four planned slices (rivals, mates, seasons, wombat tree) and cosmetics
+are now built.
 
 
 7. DECISIONS FOR YOU
