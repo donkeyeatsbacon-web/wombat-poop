@@ -479,8 +479,22 @@ BUILT: mates who join you (branch mates, 2026-10-13)
     the Sage shows days-until-invasion (rival personalities are already
     shown to everyone).
 
-Next slices (section 6): season escalation (each season needs more charm,
-household carries over), then the wombat tree and cosmetics.
+BUILT: season escalation (branch seasons, 2026-10-14)
+----------------------------------------------------
+  - Charm goal 100 + 30 per season (100, 130, 160, ...). Threat stays 100.
+  - Winning moves the save straight on to the next season: charm, threat,
+    day and buffs reset; the household carries over; a fresh map.
+  - Each season after the first: rivals +0.025 speed (mates +0.015), stacks
+    and stack targets +1 every two seasons, and the habitat's "wave" starts
+    one higher per season, so nastier rival personalities turn up sooner.
+    From season 2, the starting rivals are drawn from that pool.
+  - Losing keeps the season number and the household: try it again.
+  - "New campaign" (was "New season") resets everything; it needs a second
+    tap within 3 seconds. Continue and the front page show "Season N, Day D".
+  - New mates never reuse a name already in your burrow ("Wanda II" once all
+    12 names are taken), and prefer personalities you haven't got yet.
+
+Next slice (section 6): the wombat tree and cosmetics.
 
 
 7. DECISIONS FOR YOU

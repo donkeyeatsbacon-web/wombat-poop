@@ -234,7 +234,7 @@ function run(oldDir, newDir, page, frames, seed, skilled, hz = 60){
         ['paused', /Paused/], ['tippy', /TIPPY/], ['overworld', /Home Burrow/], ['levelHUD', /Impress|Out-stack/],
         ['banked', /Stack complete/], ['won', /Impressed!|Driven off!/], ['failed', /Failed!|TIMBERRR|Out of toilet paper!/],
         ['campaignTopple', /The tower toppled/], ['retreated', /backed down|slipped away/],
-        ['heckle', /heckling/], ['continue', /Continue — Day/], ['seasonOver', /Season won|overran/],
+        ['heckle', /heckling/], ['continue', /Continue — Season/], ['seasonOver', /Season (?:\d+ )?won|overran/], ['nextSeason', /Tap to start season/],
         ['shrunk', /fs=#eaf6ff/]]){
       if(re.test(txt) || (k==='lettuce'||k==='diarrheaDrop'||k==='puddle'||k==='shrunk') && la.some(l => re.test(l))) seen.add(k);
     }
@@ -266,7 +266,7 @@ function run(oldDir, newDir, page, frames, seed, skilled, hz = 60){
         const btnY = r < 0.04 ? 768+31 : 768+74+31;              // mostly Continue, sometimes New
         both(g => g.mouse('mousedown', 360, btnY)); continue;
       }
-      if(/Tap to begin|Tap to play again/.test(txt) && r < 0.03){ both(g => g.mouse('mousedown', 360, 480)); continue; }
+      if(/Tap to begin|Tap to play again|Tap to start season|Tap to try season/.test(txt) && r < 0.03){ both(g => g.mouse('mousedown', 360, 480)); continue; }
       // the "who comes along?" picker: take whoever is preselected and go
       const go = /"▶ Go(?: alone)?" ([\d.]+),([\d.]+)@/.exec(txt);
       if(go){ both(g => g.mouse('mousedown', +go[1], +go[2] - 8)); continue; }
