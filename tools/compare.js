@@ -267,6 +267,9 @@ function run(oldDir, newDir, page, frames, seed, skilled, hz = 60){
         both(g => g.mouse('mousedown', 360, btnY)); continue;
       }
       if(/Tap to begin|Tap to play again/.test(txt) && r < 0.03){ both(g => g.mouse('mousedown', 360, 480)); continue; }
+      // the "who comes along?" picker: take whoever is preselected and go
+      const go = /"▶ Go(?: alone)?" ([\d.]+),([\d.]+)@/.exec(txt);
+      if(go){ both(g => g.mouse('mousedown', +go[1], +go[2] - 8)); continue; }
       if(/Home Burrow/.test(txt) && !inLevel){
         if(r < 0.03){
           const nodes = findAll(la, /fill fs=(?:#ff9ec7|#e06a4a|#c0392b) A([\d.]+),([\d.]+),/);

@@ -35,8 +35,12 @@ real: they rest on whatever is under them, bridge gaps and sit crooked.
 A season in your territory. From your burrow, tap a wombat on the map to travel
 there and play a stacking level against it.
 
-- **💗 Mates:** stack to impress them for charm and a buff. They wander off if
-  you leave them too long.
+- **💗 Mates:** stack to impress them for charm and a buff, and they move into
+  your burrow. They wander off if you leave them too long. Each has a
+  personality with a perk (a wider platform, a spare roll of toilet paper, a
+  shadow showing where poops will land, a pit that catches a miss, and more),
+  shown on her map marker. Before each level you pick who comes along: one
+  seat to start, more from the Burrow upgrades in the Workshop.
 - **😤 Rivals:** out-stack them to drive them back. They march on your burrow
   on their own schedules, and any that arrive join you on the plank in your
   levels. Each has a personality, shown on its map marker: Rollers and
@@ -63,7 +67,8 @@ golden one), 5 for each finished stack or level climbed (10 more if it never
 got wobbly), 15 for driving off a rival and 10 for wooing a mate. Spend them in
 the **Workshop** (from the front page) on upgrades for your catch platform:
 four trees (Width, Grip, Stability, Protection), where the second tier makes
-you pick one of two branches. You can switch branch later for a fee.
+you pick one of two branches (you can switch later for a fee), plus the Burrow,
+whose upgrades add seats for mates in the campaign.
 
 Upgrades always apply in the campaign. Endless can be played **Upgraded** or
 **Classic** (stock), each with its own top 5; the switch appears on endless

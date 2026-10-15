@@ -457,8 +457,30 @@ BUILT: rival personalities on the plank (branch rivals, 2026-10-13)
   - Campaign level HUD moved to the grass strip at the bottom, so the
     plank and its rivals are unobstructed; in-level messages now show.
 
-Next slices (section 6): mates who join you, then the wombat tree and
-cosmetics.
+BUILT: mates who join you (branch mates, 2026-10-13)
+----------------------------------------------------
+  - Every mate has one of the 12 personalities (2C + 2F), shown on her map
+    marker. Woo her and she moves into your burrow (the household, saved
+    with the season); a newcomer still takes her spot on the map.
+  - Before each level, a "Who comes along?" picker: as many as you have
+    seats. Seats: 1, then the Burrow tree in the Workshop - Bunk Bed
+    (2 seats, 1200 Gum Nuts) and Guest Room (3 seats, 2000).
+  - Mates sit on the plank beside your wombat, wearing their perk icon.
+  - Perks are tier 1 only for now (fixed by personality):
+      Gardener eats the first lettuce of a level; Builder +20 px platform;
+      Lookout marks where the next poop lands; Steady damps the wobble;
+      Charmer +25% Gum Nuts; Bouncer shoos one rival off at the start of
+      each level (this is the "mates evict rivals" route); Digger's pit
+      catches the first miss; Forager +1 Gum Nut per 5 poops; Nurse +1
+      toilet paper; Sage shows days until each rival invades (works from
+      the burrow, no seat needed); Drummer counts in each poop; Acrobat
+      flicks back one poop per stack that slides off.
+  - Changed from the options: Bouncer's perk is the shoo (not Glare), and
+    the Sage shows days-until-invasion (rival personalities are already
+    shown to everyone).
+
+Next slices (section 6): season escalation (each season needs more charm,
+household carries over), then the wombat tree and cosmetics.
 
 
 7. DECISIONS FOR YOU

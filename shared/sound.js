@@ -133,6 +133,8 @@
       [[523,0.12],[659,0.12],[784,0.12],[1047,0.4]].forEach(([f,d], i) =>
         tone(f, d, { type:'triangle', vol:0.22, delay:i*0.11 }));
     },
+    // the Drummer's count-in (accent on the last beat)
+    drum(accent){ tone(accent ? 150 : 110, 0.16, { to: 60, vol: accent ? 0.4 : 0.28 }); noise(0.05, { freq: 1500, vol: 0.08 }); },
     // a rival stomping the plank
     stomp(){ tone(80, 0.3, { to:38, vol:0.45 }); noise(0.2, { freq:400, to:90, vol:0.35 }); },
     // a rival snatching a poop

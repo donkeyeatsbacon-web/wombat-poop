@@ -20,6 +20,7 @@
   // simulated player earns ~40 Gum Nuts a minute, and a won season takes
   // ~15 minutes (at least five mates wooed). Tiers 2 and 3 cost more.
   const PRICE = [0, 600, 1200, 2000];
+  const SEAT_PRICE = [0, 1200, 2000];  // the burrow's extra seats for mates
   const SWAP_FEE = 0.3;            // swapping branch costs 30% of what you paid for the tiers you move
 
   const trees = [
@@ -41,6 +42,12 @@
          { name:'Anchor',     desc:'Once per level, a tower about to topple is caught and straightens up.' }],
       b:[{ name:'Low Centre', desc:'A lopsided pile pushes the tower 20% less.' },
          { name:'Slow-Mo',    desc:'Once per level, time slows right down for a moment when the tower is about to go.' }] },
+    // The burrow is a straight line (no branches): more seats for mates who
+    // come along to your campaign levels.
+    { id:'burrow', name:'Burrow', icon:'🏡', blurb:'Room for mates who come along to your campaign levels.', linear:true,
+      t1:{ name:'Bunk Bed', desc:'A second seat: two mates can come along to a level.' },
+      a:[{ name:'Guest Room', desc:'A third seat: three mates can come along.' }],
+      b:[] },
     { id:'protection', name:'Protection', icon:'☂', blurb:'Shelter from the diarrhea.',
       t1:{ name:'Awning', desc:'Diarrhea hitting the board shrinks it half as much.' },
       a:[{ name:'Umbrella', desc:'The top poop of your stack can\'t be melted.' }],
@@ -64,14 +71,15 @@
   const has = (id, tier, branch) => { const l = level(id); return l.tier >= tier && (!branch || l.branch === branch); };
 
   // the next thing you could buy in a tree (null when it's complete)
+  const priceOf = (t, tier) => t.linear ? SEAT_PRICE[tier] : PRICE[tier];
   function next(id, branch){
     const t = tree(id), l = level(id);
     if(l.tier >= maxTier(t)) return null;
-    if(l.tier === 0) return { tier: 1, branch: null, item: t.t1, price: PRICE[1] };
-    const b = l.branch || branch;
+    if(l.tier === 0) return { tier: 1, branch: null, item: t.t1, price: priceOf(t, 1) };
+    const b = l.branch || branch || (t.linear ? 'a' : null);
     if(!b) return null;                                       // tier 2: say which branch
     const item = t[b][l.tier - 1];
-    return item ? { tier: l.tier + 1, branch: b, item, price: PRICE[l.tier + 1] } : null;
+    return item ? { tier: l.tier + 1, branch: b, item, price: priceOf(t, l.tier + 1) } : null;
   }
 
   function buyNext(id, branch){
@@ -140,10 +148,12 @@
       landFriction: m.landFriction, overhangBoard: m.overhangBoard, overhangPoops: m.overhangPoops,
       springs: m.springs, catapult: m.catapult, shrinkPerDrop: m.shrinkPerDrop, umbrella: m.umbrella };
   }
-  const anyOwned = () => trees.some(t => level(t.id).tier > 0);
+  // "Upgraded" means platform upgrades; the burrow only matters in the campaign
+  const anyOwned = () => trees.some(t => !t.linear && level(t.id).tier > 0);
+  const seats = () => 1 + level('burrow').tier;
 
   WB.progress = {
-    trees, tree, level, next, buyNext, swap, swapFee, mods, tune, anyOwned, PRICE,
+    trees, tree, level, next, buyNext, swap, swapFee, mods, tune, anyOwned, seats, PRICE, priceOf,
     nuts: () => state.nuts,
     earn(n){ if(n > 0){ state.nuts += Math.round(n); save(); } },
     reload(){ try { const d = JSON.parse(localStorage.getItem(KEY) || 'null'); if(d && d.v === 1) state = d; } catch(e){} },
