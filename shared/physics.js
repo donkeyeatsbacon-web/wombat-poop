@@ -394,6 +394,11 @@
 
   function shrinkPlatform(S, x){
     const plat = S.plat;
+    if(S.tune.fertiliser){                      // the Fertiliser upgrade: it just soaks in
+      for(let k=0;k<5;k++) S.particles.push({ x, y: plat.y - plat.h/2 + S.camOffset,
+        vx: rand(-1.5,1.5), vy: rand(-2.5,-0.5), life: rand(14,26), max:26, r: rand(2,4), color:'#7cc743', kind:'puff' });
+      return;
+    }
     const per = S.tune.shrinkPerDrop || SMALL_CUBE;   // the Awning upgrade halves it
     plat.shrink = Math.min(plat.shrink + per, per*3);
     plat.shrinkTimer = 1800;                    // ~30 seconds

@@ -29,10 +29,10 @@
 <div id="hint"></div>
 <script src="shared/core.js?v=2467b2bd"></script>
 <script src="shared/sound.js?v=aefb19fa"></script>
-<script src="shared/progress.js?v=da6fab86"></script>
+<script src="shared/progress.js?v=ac5f361a"></script>
 <script src="shared/art.js?v=10b403ae"></script>
-<script src="shared/physics.js?v=ea1ea799"></script>
-<script src="shared/wombat.js?v=4c6fc133"></script>
+<script src="shared/physics.js?v=66864343"></script>
+<script src="shared/wombat.js?v=b52e190a"></script>
 <script>
 (() => {
   const { W, H, topPlat, rand, clamp } = WB;
@@ -417,12 +417,14 @@
     // Gum Nuts: 1 per poop stacked, 5 more for a golden one
     onSettle: p => {
       if(p.bad){ L.stack[L.stack.length-1].rotT = 150; return; }   // a rival's bad cube: worth nothing, and it rots
-      L.nuts += 1; if(WB.isGolden(p.hue)){ L.nuts += 5; }
+      L.nuts += 1 + L.M.nutPerPoop; if(WB.isGolden(p.hue)){ L.nuts += 5; }   // Big Eater: +1 each
       L.stacked++;
+      if(L.M.rapidNuts && L.stacked % 2 === 0) L.nuts += 1;          // Rapid Fire: +1 every 2nd
       if(along('forager') && L.stacked % 5 === 0) L.nuts += 1;     // the Forager's find
     },
     onBoardDrop: () => { if(L.M.gutter) L.nuts += 1; },
-    nextPoopAt: t => t + rand(70,150)
+    nextPoopAt: t => t + (WB.progress.pace(rand(70,150), 110, L.M)) * L.M.gapMul * L.M.campGapMul,
+    onSnub: () => showToast('🙅 Your wombat turned its nose up at the lettuce')
   };
 
   function startLevel(node){
@@ -669,7 +671,7 @@
       }
     }
     // the Drummer counts in each poop: three beats, then out it comes
-    if(along('drummer') && L.wombat.mode === 'push' && [1, 9, 17].includes(L.wombat.timer)){
+    if(along('drummer') && L.wombat.mode === 'push' && [1, 9, 17].includes(L.wombat.timer - (L.M.pushAt - 24))){
       const n = [1, 9, 17].indexOf(L.wombat.timer);
       L.beat = { n: 3 - n, life: 8 }; WB.sfx('drum', n === 2);
     }

@@ -494,7 +494,29 @@ BUILT: season escalation (branch seasons, 2026-10-14)
   - New mates never reuse a name already in your burrow ("Wanda II" once all
     12 names are taken), and prefer personalities you haven't got yet.
 
-Next slice (section 6): the wombat tree and cosmetics.
+BUILT: the wombat tree (branch wombat-tree, 2026-10-14)
+------------------------------------------------------
+  - Four trees under "Your wombat" in the Workshop (now grouped: platform,
+    wombat, burrow), same prices as the platform trees:
+      Diet    T1 Fibre Diet (sizes 36-70) | T2a Bricklayer (a fifth flatter:
+              steadier, but climbs slower) -> T3a Mega Cube (every 10th poop
+              a wide, flat slab) | T2b Big Eater (+8 px, +1 Gum Nut each) ->
+              T3b Golden Belly (golden 3x as often)
+      Aim     T1 Steady Walker (turns half as often) | T2a Centre Line
+              (shuffles to the middle before each push) | T2b Telegraph
+              (strains twice as long first)
+      Tummy   T1 Tough Tummy (diarrhea 30% shorter) | T2a Picky Eater (snubs
+              every 3rd lettuce) | T2b Fertiliser (diarrhea never shrinks the
+              board)
+      Rhythm  T1 Regular (gaps vary half as much) | T2a Slow Burn (endless
+              ramps 30% slower; campaign gaps 10% longer) | T2b Rapid Fire
+              (15% faster; +50% points in endless, +1 Gum Nut every 2nd poop)
+  - Changed from the options: Fertiliser stops the shrinking (rather than
+    scoring drops); Big Eater also pays a Gum Nut so it's worth taking in the
+    campaign; Aim, Tummy and Rhythm stop at tier 2, as in the options.
+  - With nothing owned (and in Classic), play is exactly as before.
+
+Next slice: cosmetics.
 
 
 7. DECISIONS FOR YOU
