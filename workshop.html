@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Workshop · Combat Wombat</title>
-<meta name="description" content="Spend Gum Nuts on upgrades for your catch platform.">
+<meta name="description" content="Spend Gum Nuts on upgrades for your catch platform and your wombat.">
 <meta name="theme-color" content="#6ab04c">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -24,8 +24,10 @@
   }
   .wallet { font-size: 20px; }
   .lede { color: #23301a; font-size: 17px; max-width: 70ch; }
+  .group > h2 { font-size: 26px; color: #fff; text-shadow: 0 2px 0 #2d5016; margin: 6px 0 -6px; }
+  .group > p { color: #23301a; margin: 6px 0 4px; }
   .trees { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 430px), 1fr)); gap: 16px; }
-  .tree { background: #fff8e7; border: 4px solid #7a3d12; border-radius: 18px; padding: 14px 16px 16px; display: grid; gap: 10px; color: #5a2d0c; min-width: 0; }
+  .tree { align-content: start; background: #fff8e7; border: 4px solid #7a3d12; border-radius: 18px; padding: 14px 16px 16px; display: grid; gap: 10px; color: #5a2d0c; min-width: 0; }
   .tree h2 { font-size: 24px; }
   .tree .blurb { color: #7a3d12; margin-top: -6px; }
   .tier { display: grid; gap: 8px; }
@@ -60,11 +62,11 @@
       <h1>Workshop</h1>
       <span class="wallet" id="wallet" aria-live="polite"></span>
     </header>
-    <p class="lede">Spend Gum Nuts on your catch platform. Upgrades work in every campaign level, and in endless mode
+    <p class="lede">Spend Gum Nuts on your catch platform, your wombat and your burrow. Upgrades work in every campaign level, and in endless mode
       when it's set to Upgraded (Classic stays stock, with its own high scores).
       In each tree the second tier is a choice of two branches: taking one locks the other, but you can switch later
       for a fee.</p>
-    <section class="trees" id="trees" aria-label="Upgrades"></section>
+    <div id="trees"></div>
     <section class="earn">
       <h2>Earning Gum Nuts</h2>
       <ul>
@@ -77,7 +79,7 @@
 </div>
 <script src="shared/core.js?v=2467b2bd"></script>
 <script src="shared/sound.js?v=aefb19fa"></script>
-<script src="shared/progress.js?v=da6fab86"></script>
+<script src="shared/progress.js?v=ac5f361a"></script>
 <script>
 (() => {
   const P = WB.progress;
@@ -109,11 +111,27 @@
     return b;
   }
 
+  const GROUPS = [
+    { id:'platform', name:'🪵 Your platform', about:'How the catch platform handles the poops that land on it.' },
+    { id:'wombat',   name:'🐾 Your wombat',   about:'You steer the platform, not the wombat: these change what it gives you to catch.' },
+    { id:'burrow',   name:'🏡 Your burrow',   about:'' },
+  ];
   function render(){
     document.getElementById('wallet').innerHTML = nuts(P.nuts()) + ' Gum Nuts';
-    const host = document.getElementById('trees');
-    host.textContent = '';
-    for(const tree of P.trees){
+    const outer = document.getElementById('trees');
+    outer.textContent = '';
+    for(const g of GROUPS){
+      const sec = el('section', 'group');
+      sec.setAttribute('aria-label', g.name.replace(/^\S+ /, ''));
+      sec.append(el('h2', '', esc(g.name)));
+      if(g.about) sec.append(el('p', '', esc(g.about)));
+      const host = el('div', 'trees');
+      sec.append(host); outer.append(sec);
+      renderGroup(host, P.trees.filter(t => t.group === g.id));
+    }
+  }
+  function renderGroup(host, trees){
+    for(const tree of trees){
       const lv = P.level(tree.id);
       const card = el('article', 'tree');
       card.append(el('h2', '', esc(tree.icon + ' ' + tree.name)), el('div', 'blurb', esc(tree.blurb)));

@@ -70,10 +70,12 @@ Progress saves automatically after each day, so you can close the page and
 Both modes earn **Gum Nuts**: 1 for every poop you stack (5 more for a rare
 golden one), 5 for each finished stack or level climbed (10 more if it never
 got wobbly), 15 for driving off a rival and 10 for wooing a mate. Spend them in
-the **Workshop** (from the front page) on upgrades for your catch platform:
-four trees (Width, Grip, Stability, Protection), where the second tier makes
-you pick one of two branches (you can switch later for a fee), plus the Burrow,
-whose upgrades add seats for mates in the campaign.
+the **Workshop** (from the front page). Your catch platform has four trees
+(Width, Grip, Stability, Protection) and your wombat has four more (Diet, Aim,
+Tummy, Rhythm), which change the poops it gives you: their size and shape,
+where they come from, how it copes with lettuce and how fast they come. In
+each tree the second tier makes you pick one of two branches (you can switch
+later for a fee). The Burrow's upgrades add seats for mates in the campaign.
 
 Upgrades always apply in the campaign. Endless can be played **Upgraded** or
 **Classic** (stock), each with its own top 5; the switch appears on endless
