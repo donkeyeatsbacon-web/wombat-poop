@@ -1,0 +1,210 @@
+COMBAT WOMBAT - IDEAS FOR WHAT TO ADD NEXT
+==========================================
+Written 2026-10-15, after cosmetics shipped. Everything in UPGRADE-OPTIONS.txt
+is now built: rivals on the plank, mates and perks, Gum Nuts and the
+Workshop, the platform and wombat trees, harder seasons and cosmetics.
+
+Sizes are rough: S = an afternoon, M = about a sprint, L = two or more.
+Each idea notes what it builds on in the existing code.
+
+
+1. FINISH WHAT'S HALF THERE
+---------------------------
+
+  1A. Tier 3 for the wombat's Aim, Tummy and Rhythm trees                 S
+      They stop at tier 2 today, while the platform trees go to tier 3.
+        Aim:    Centre Line -> Bullseye (every 5th poop drops dead centre)
+                Telegraph   -> Shadow (a landing shadow, like the
+                                Lookout mate's, for every poop)
+        Tummy:  Picky Eater -> Iron Gut (the 2nd lettuce in a row does
+                               nothing)
+                Fertiliser  -> Compost (each drop on the board gives back
+                               a few px of width)
+        Rhythm: Slow Burn   -> Second Wind (once per run, the pace resets)
+                Rapid Fire  -> Combo (stack 5 without a wobble warning to
+                               double Gum Nuts for 10 s)
+
+  1B. Mate perk trees (option 2B c, put off earlier)                      M
+      Mates that come along to levels gain experience and grow a stronger
+      perk at level 2. For example, a Gardener eats two lettuces, or the
+      Digger's pit catches two misses.
+      This gives the burrow a reason to matter past season 2, where
+      everyone's household is full.
+
+  1C. More rival personalities for late seasons                           S-M
+      Season 4+ reuses the full pool. Some ideas:
+        Shaker  - stomps the plank so the whole tower sways
+        Mimic   - copies the last poop you caught, but rotten
+        Gusty   - blows the falling poop sideways
+        Sleeper - naps on the plank and blocks the wombat's path
+                  until you finish a stack
+
+  1D. A season-end screen that celebrates                                 S
+      Today the banner is plain text. Instead, show the mates you won this
+      season, Gum Nuts earned, rivals beaten and your best stack, then
+      "Season 3 needs 160 charm".
+
+
+2. NEW WAYS TO PLAY
+-------------------
+
+  2A. Puzzle stacks ("Poop Golf")                                         M
+      Hand-made levels with a fixed sequence of poops (sizes known in
+      advance) and a target shape or height. Score 1-3 stars by misses
+      and wobble. The fixed clock already makes runs repeatable, so a
+      level is just a list of sizes and a seed.
+
+  2B. Ghost replays                                                       M
+      The game is fully deterministic on a seed (it's what compare.js
+      relies on). Record your inputs for a best endless run and race a
+      faint "ghost" of your own platform next time. This could later be
+      shared as a link (see 4B).
+
+  2C. Two-player on one screen                                            L
+      Two platforms, arrow keys plus A/D, or two thumbs on a phone. Either
+      co-op (one tower, two catchers) or versus (each wombat's lettuce
+      lands on the other's side).
+
+  2D. Boss days in the campaign                                           M
+      Every 5th day, a "Big Boss" rival (a huge wombat) sits on the plank
+      for a whole level: several personalities at once. Beat them for a
+      cosmetic only bosses drop.
+
+  2E. A short story mode / tutorial island                                M
+      Three or four guided levels that teach steering, wobble, lettuce and
+      rivals one at a time, before the open campaign map.
+
+
+3. MORE VARIETY IN A RUN
+------------------------
+
+  3A. Habitats per season                                                 M
+      Season 1 is grassland, then desert (heat makes poops slide more),
+      snow (icy board, less grip), night (darker sky, glowing golden
+      poops). This is mostly art plus one tuning knob per habitat in TUNE.
+
+  3B. Weather that changes mid-level                                      S-M
+      Wind gusts push falling poops sideways, rain makes the board
+      slippery for 10 s, and a rainbow doubles golden poops briefly.
+      Shown with a forecast icon on the map.
+
+  3C. New special poops                                                   S each
+        Bouncy poop - springs once on landing
+        Heavy poop  - small but steadies the tower
+        Ice cube    - slides unless it lands dead flat
+        Mystery box - random buff when stacked
+      These would hang off the same hue trick as golden and bad cubes.
+
+  3D. Power-ups you catch                                                 S
+      Occasional items falling with the poops: a glue pot (next 3 poops
+      stick), a magnet (pulls the next poop to the middle), a clock
+      (slow-mo for 5 s).
+
+
+4. GOALS AND SHOWING OFF
+------------------------
+
+  4A. Achievements / a sticker book                                       M
+      Some examples:
+        - "Stack 20 without a wobble warning"
+        - "Win a season with no mates along"
+        - "Catch a Lobber's lettuce 10 times"
+        - "Own every hat"
+      Each gives a sticker in a book on the front page, and some unlock
+      cosmetics you can't buy. This adds goals without a daily bonus.
+      (You turned the daily bonus down, so nothing here nags.)
+
+  4B. Share card                                                          S
+      On game over, a "Share" button builds an image (your wombat in its
+      outfit, the score, the tower) using the same art code as the icons,
+      then opens the phone's share sheet.
+
+  4C. Stats page                                                          S
+      Totals across all play: poops stacked, Gum Nuts earned, seasons won,
+      favourite mate, rival most often beaten, tallest tower ever.
+
+  4D. Online leaderboard                                                  L
+      Needs a small server (or a hosted service), so it's the biggest
+      jump from "static site" to running something. The Classic list
+      would be the fair one to put online.
+
+
+5. FEEL AND POLISH
+------------------
+
+  5A. Music                                                               M
+      A light looping bush-band tune, synthesised like the sound effects
+      (no files), that picks up tempo as the tower grows. A separate mute
+      for music and effects.
+
+  5B. Phone vibration on catches, topples and golden poops                S
+      navigator.vibrate where supported, with a setting to turn it off.
+
+  5C. Juice                                                               S
+      Squash-and-stretch on the platform when a big poop lands, a slow-mo
+      zoom on the toppling poop, and confetti when a season is won.
+
+  5D. More cosmetics                                                      S each
+      More hats (pirate, chef, viking), glasses, capes, a platform trail
+      and paint for the top plank. Some unlocked only by achievements or
+      bosses, so they mean something.
+
+  5E. Settings screen                                                     S
+      Sound and music volume, vibration, reduced motion (less shake and
+      wobble animation) and a bigger-text option.
+
+
+6. REACH AND ACCESSIBILITY
+--------------------------
+
+  6A. Reduced motion and colour-blind safe cues                          S
+      Golden vs bad cubes and the wobble meter rely on colour. Add shapes
+      or patterns.
+
+  6B. Left-handed / one-thumb controls on phones                         S
+      Drag anywhere to steer already works. Check that the pause button
+      and toasts are reachable and readable on small screens.
+
+  6C. Translations                                                        M
+      Pull the on-screen text into one table so it can be translated.
+
+
+7. UNDER THE HOOD
+-----------------
+
+  7A. Turn the scratch test harnesses into tools/                         S
+      The season, mate, rival and outfit runs I used for testing live
+      outside the repo. Folding their save-seeding (SAVE / PROG) into
+      tools/compare.js would make every future change easier to check.
+
+  7B. Stop the auto-saver catching temporary files                        S
+      It committed temporary edits to .claude/launch.json three times this
+      week. Have it skip that file, or move preview config outside it.
+
+  7C. Split wombat-campaign.html                                          M
+      It's ~1,300 lines with the map, levels, rivals, mates and picker all
+      in one script. Moving rivals and mates into shared/ files would make
+      the next big feature easier.
+
+
+8. STILL OPEN FROM RELEASE-PLAN.txt
+-----------------------------------
+
+  - The real-device playtest (Phase A/B) and its checklist: emoji on
+    older phones, how the art reads on small screens.
+  - The balance pass (Phase C), now with seasons, mates and both upgrade
+    trees in play. Pricing was set before the wombat tree and cosmetics
+    existed.
+  - Tagging a v1.0 release in git.
+  These come before anything above if the goal is a public release.
+
+
+9. IF I HAD TO PICK THREE
+-------------------------
+
+  1. Playtest + balance pass (section 8). The game has grown a lot since
+     the last time someone played it end to end.
+  2. Achievements / sticker book (4A), which also feeds cosmetics (5D).
+     It gives long-term goals without nagging.
+  3. Habitats per season (3A). Each new season currently looks the same,
+     and a new place each season makes winning one feel like progress.
