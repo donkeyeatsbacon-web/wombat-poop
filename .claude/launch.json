@@ -4,8 +4,24 @@
     {
       "name": "wombat",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8752"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8752"
+      ],
       "port": 8752
+    },
+    {
+      "name": "seasons",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8761",
+        "--directory",
+        "/tmp/claude-1000/-home-bfox-Desktop-Wombat-Poop/19ad07b4-7f87-45a4-a063-7c54b72b7216/scratchpad/wt-ss"
+      ],
+      "port": 8761
     }
   ]
 }
