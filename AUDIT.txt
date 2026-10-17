@@ -1,6 +1,6 @@
 COMBAT WOMBAT - FULL AUDIT
 ==========================
-2026-10-16. Covers the live build (main): physics, game feel, game design,
+2026-10-16. Covers the live build (main) plus the unshipped stickers branch: physics, game feel, game design,
 art and sound, and the code, then answers "would an engine have been better,
 and does it need rebuilding?"
 
@@ -183,11 +183,12 @@ Endless mode
 The campaign
 
 [!!!] 3.4 Lots of systems on top of an unchanged core
-      In about two weeks, the game gained:
+      In three days (13-15 October), the game gained:
         - 7 rival personalities and 12 mate perks
         - 8 buffs and debuffs
         - 9 upgrade trees (5 platform, 4 wombat)
-        - seasons, Gum Nuts, 38 looks and 32 stickers
+        - seasons, Gum Nuts and 38 looks
+        - 32 stickers (built, waiting on the stickers branch)
       Most of these change numbers (+15 px, x0.85 steering, -30%
       diarrhea), and most only matter because the core is fiddly. Many
       can't be felt at all: Fibre Diet, Regular and Steady Walker change
@@ -212,7 +213,7 @@ The campaign
       the game is now much bigger than the plan assumed.
 
 [!] 3.8 Lots of text
-      The campaign has 19 different toast messages, plus chips, banners and
+      The campaign shows toast messages from 19 places in its code, plus chips, banners and
       a picker. Much of the game is explained in sentences scrolling past
       while you're trying to catch poops.
 
