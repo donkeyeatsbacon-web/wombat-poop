@@ -4,8 +4,24 @@
     {
       "name": "wombat",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8752"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8752"
+      ],
       "port": 8752
+    },
+    {
+      "name": "godot-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8770",
+        "--directory",
+        "/home/bfox/Desktop/Combat Wombat/build/web"
+      ],
+      "port": 8770
     }
   ]
 }
