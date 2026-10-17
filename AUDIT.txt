@@ -1,0 +1,405 @@
+COMBAT WOMBAT - FULL AUDIT
+==========================
+2026-10-16. Covers the live build (main): physics, game feel, game design,
+art and sound, and the code, then answers "would an engine have been better,
+and does it need rebuilding?"
+
+How this was done: reading every system in the code, plus the simulation
+runs from the last few slices. I can't hold a phone and play it, so the
+"feel" findings are traced to the code that causes them, and they should be
+checked against how it feels in your hands.
+
+Severity: [!!!] hurts the core of the game  [!!] clearly noticeable  [!] polish
+
+
+0. THE SHORT ANSWER
+-------------------
+
+You're right that the physics feel clunky, and the reason is specific: the
+game doesn't really simulate a tower. Poops are frozen in place the moment
+they land, the "wobble" is a single number drawn as a lean, and the platform
+can move at any speed without the tower noticing. Most of the clunk you
+feel comes from rules written to paper over that (see section 1).
+
+That is a design choice in the physics, not the lack of a game engine. An
+engine would hand you a real physics simulation, but so can a small physics
+library dropped into this codebase. My recommendation (section 7) is:
+
+  - Don't rebuild everything from scratch in a big engine. Most of what's
+    here (art, sound, saves, campaign, Workshop, stickers, offline play,
+    the test harness) works and would have to be rebuilt for little gain.
+  - Do rebuild the stacking core on a real rigid-body physics library
+    (Planck.js or Rapier), prototyped first as a separate page so you can
+    play the old and new side by side before committing.
+  - Then trim the design: the game has grown many systems in a short time
+    while the core stacking feel hasn't changed since the first sprint.
+
+If you want to grow far past what's here (lots of animated characters,
+story scenes, consoles or app stores), section 6 covers when a full engine
+starts to pay off and which one.
+
+
+1. PHYSICS
+----------
+
+How it works now (shared/physics.js):
+  - Falling poops are axis-aligned boxes with gravity and hand-written
+    collision rules.
+  - When a poop comes to rest it is "settled": frozen into the pile at a
+    fixed offset from the platform centre. Settled poops never move again
+    (unless diarrhea melts what's under them).
+  - The wobble is one spring value (pileSway) driven by how far the pile's
+    centre of mass sits outside the middle 72% of the platform, plus a
+    sine wave for "nervousness".
+  - The tower is drawn sheared sideways by that value. When the leaning
+    centre of mass passes the platform edge plus a margin, the whole tower
+    falls as a scripted animation and the run (or level) ends.
+
+[!!!] 1.1 Moving the platform has no effect on the tower
+      steerPlatform (shared/core.js) moves the platform up to 9 px a frame
+      (540 px/s), or snaps 35% of the way to your finger every frame. The
+      pile is stored as offsets from the platform, so it rides along glued
+      on. Nothing feeds platform speed or acceleration into the wobble.
+      This removes the most natural skill in a balancing game (carry the
+      tower carefully, don't jerk it) and makes the platform feel weightless.
+
+[!!!] 1.2 The tower you see isn't where the physics thinks it is
+      drawStack (shared/art.js) shears the tower sideways by
+      sway x height x 0.35, but collisions use the un-sheared positions.
+      With the drawn sway at its limit (0.5), a poop 300 px up the tower is
+      drawn 52 px from where the game treats it as being. So when the tower
+      leans visibly, a new poop can land on thin air next to the drawn top,
+      or pass into its side. This is probably a large part of the "clunky"
+      feeling.
+
+[!!!] 1.3 Settled poops never react to anything
+      A poop resting half off another one doesn't tip; a tall thin stack
+      doesn't buckle; a big poop landing hard doesn't jostle the ones below.
+      The only failure is the all-or-nothing topple. There are no near-misses
+      ("it slid but held"), no partial collapses, and no recovering by moving
+      under a slipping poop. That's where most of the drama in stacking
+      games (Tricky Towers, Jenga) comes from.
+
+[!!] 1.4 Corner cases are handled by teleporting
+      Several rules move poops by hand when the box collision can't decide:
+        - a poop overhanging too far is shoved 2.2-7 px sideways each frame
+          until it falls (stepPlops, "shove it off decisively")
+        - a poop squeezed between two others snaps to the gap's centre and
+          sits on top (collideFallingPoop, "squeezed from both sides")
+        - a poop in contact for 40 frames without settling is parked on top
+          of whatever is under its centre (stepPlops, p.contact > 40)
+        - grazing a corner shoves it off rather than letting it tip
+      Each one is reasonable on its own, but together they read as poops
+      jumping, snapping and sliding in ways real objects don't.
+
+[!!] 1.5 Rotation is only for looks
+      Falling poops spin, and settled ones can sit tilted on a bridge, but
+      every collision treats them as upright boxes. A tilted poop's drawn
+      corner can overlap a neighbour, or float above its support.
+
+[!!] 1.6 The wobble meter moves on its own
+      The nervous sway adds a sine wave scaled by how precarious the pile
+      is. The campaign also gives the pile random kicks when a Stomper
+      lands. To the player this looks like the meter twitching for no
+      reason they can see or influence.
+
+[!!] 1.7 Topple is a threshold, then a cutscene
+      Once the leaning centre of mass crosses the edge, every poop falls
+      straight down with a little scatter. There's no moment where you
+      see it going and can save it (except the Anchor and Slow-Mo
+      upgrades, which exist to patch exactly this).
+
+[!] 1.8 Two different physics tunings
+      Endless and the campaign use different sway, damping and fall speeds
+      (the TUNE tables). A player who learns one mode has to relearn the
+      other's feel.
+
+[!] 1.9 What's good and worth keeping
+      - The fixed 60-steps-a-second clock: the game plays the same at
+        60/120/144 Hz.
+      - Full determinism, so tools/compare.js can prove a change didn't
+        alter play. That's rare and valuable.
+      - Melting and the "collapsed" re-falls are a fun idea that real
+        physics would make even better.
+
+
+2. CONTROLS AND GAME FEEL
+-------------------------
+
+[!!] 2.1 The poop source is hard to read
+      The wombat changes direction at random (a 0.8% chance every frame)
+      and poops on a random timer, so where the next poop drops is
+      mostly luck. Steady Walker, Centre Line, Telegraph and the Lookout
+      mate all exist to patch this. A readable, rhythmic wombat (a
+      visible walk-and-squat pattern you can learn) would make catching
+      a skill, not a reaction test.
+
+[!!] 2.2 No preview of what's coming
+      Poop size (30-78 px) is the biggest factor in stacking well, and you
+      learn it only when it appears. Stacking games usually show the next
+      piece. A "next poop" bubble over the wombat would add planning.
+
+[!!] 2.3 Pointer steering is lag-then-snap
+      With a finger, the platform closes 35% of the gap every frame. That
+      is snappy on small moves and slightly floaty on big ones, with no
+      sense of weight. Keyboard is a constant 9 px a frame with no
+      acceleration. Once the tower reacts to motion (1.1), both need a
+      proper acceleration curve.
+
+[!] 2.4 Feedback is good on catches, weak on danger
+      Landing a poop has a squish, stars, a sound and a little shake. But
+      the moment that matters most (the tower starting to go) has only
+      the meter and the lean. A creak sound exists, but danger has no
+      dedicated camera move, slow-down or colour cue.
+
+[!] 2.5 Screen shake on every landing
+      A shake on every settle (+3, up to 10) adds up during busy stretches.
+      Shake is best saved for big moments.
+
+
+3. GAME DESIGN
+--------------
+
+Endless mode
+
+[!!] 3.1 The core loop has one decision
+      Catch the poop, put it near the middle. Since you can't drop or
+      reposition a poop without losing toilet paper, there's little choice
+      about where to put a poop or when to take a risk. Ideas with real
+      choice: aim for score zones on the tower, golden poops that only
+      count if placed on top, a "flick" to reject a bad poop at some cost,
+      or combos for matching sizes.
+
+[!!] 3.2 Runs end abruptly and all at once
+      Three misses or one topple ends the run. Topples come from a slow
+      build-up the player can't see well (1.2, 1.6), so a run can end
+      without the player understanding why.
+
+[!] 3.3 Difficulty is pace-only
+      Endless gets harder by shortening the gap between poops. Levels
+      look and play the same. A new hazard, poop type or wind per level
+      would make climbing feel like progress.
+
+The campaign
+
+[!!!] 3.4 Lots of systems on top of an unchanged core
+      In about two weeks, the game gained:
+        - 7 rival personalities and 12 mate perks
+        - 8 buffs and debuffs
+        - 9 upgrade trees (5 platform, 4 wombat)
+        - seasons, Gum Nuts, 38 looks and 32 stickers
+      Most of these change numbers (+15 px, x0.85 steering, -30%
+      diarrhea), and most only matter because the core is fiddly. Many
+      can't be felt at all: Fibre Diet, Regular and Steady Walker change
+      odds the player never sees. Meanwhile the stacking itself plays the
+      same in a season-5 level as in the first minute.
+
+[!!] 3.5 Every level is the same goal
+      Every campaign level is "finish N stacks to the line", whether it's a
+      mate or a rival, with different numbers. Mates and rivals could ask
+      for different things: a mate wants a pretty (wobble-free) tower; a
+      rival dares you to build tall fast; a boss wants you to survive.
+
+[!!] 3.6 The map is a timer more than a place
+      Rivals march in on a clock and mates wander off on one. That creates
+      pressure, but choosing whom to visit comes down to arithmetic. The
+      Sage mate exists to show the numbers. Fewer, more distinct nodes
+      could make the choice about what kind of level you want.
+
+[!] 3.7 Balance hasn't met a human yet
+      Prices, charm goals and rival speeds were set by simulated bots. The
+      playtest and balance phases in RELEASE-PLAN.txt never happened, and
+      the game is now much bigger than the plan assumed.
+
+[!] 3.8 Lots of text
+      The campaign has 19 different toast messages, plus chips, banners and
+      a picker. Much of the game is explained in sentences scrolling past
+      while you're trying to catch poops.
+
+Progression
+
+[!] 3.9 The two economies overlap
+      Upgrades, looks and stickers are three reward tracks with one
+      currency, which is fine, but upgrades make the game easier at
+      exactly the point it should be getting more interesting. Consider
+      upgrades that change how you play (Springs, Catapult, Mega Cube are
+      good examples) over plain number bumps.
+
+What's strong
+
+  - The premise is funny and memorable, and the tone is consistent.
+  - The Bush wombat design reads well and has character.
+  - Mates on the plank and rivals bullying you from it are genuinely
+    good ideas. They put the meta-game into the stacking screen.
+  - The front page, offline play and the "no build step, opens anywhere"
+    setup are lean and work well.
+
+
+4. ART, ANIMATION AND SOUND
+---------------------------
+
+[!!] 4.1 Animation is all procedural, and it shows
+      Everything is drawn in code each frame (shared/art.js). That gave a
+      clean, consistent outline style cheaply, but motion is limited to
+      bobbing, sine-wave wiggles and a squish factor. No anticipation and
+      follow-through on the squat, no real walk cycle, no faces reacting
+      to the tower. The wombat is the star, and it's the least animated
+      thing in a good-looking scene.
+
+[!!] 4.2 The layout is cramped at the top
+      The top plank sits 132 px from the top of a 960 px screen. The
+      wombat's head nearly touches the edge; hats get cut off; the HUD
+      panels in endless overlap it. Endless and the campaign also put their
+      HUDs in different places (top vs bottom).
+
+[!] 4.3 Emoji carry a lot of the UI
+      Icons for buffs, perks, rivals, stickers and buttons are emoji. They
+      look different on every phone (and blank on some older ones), which
+      clashes with the hand-drawn outline art. RELEASE-PLAN.txt flagged
+      this (I7) and it was never checked.
+
+[!] 4.4 Backgrounds are plain
+      A flat sky gradient, clouds and a grass strip. The campaign map is a
+      ring of nodes on green. Habitats (NEXT-IDEAS 3A) would help most.
+
+[!] 4.5 Sound is functional but thin
+      16 synthesised effects, no music. The sounds are short and similar
+      in tone. Music and a richer poop "plop" palette would add a lot.
+
+What's strong: the outline style is consistent across wombats, poops,
+platforms and UI, the colours read clearly, and Comic Neue suits the tone.
+The cosmetics show the style can take on more variety well.
+
+
+5. CODE AND TECH
+----------------
+
+[!!] 5.1 Big single-file pages
+      wombat-campaign.html is 1,326 lines in one script: map, levels,
+      rivals, mates, picker, saves and all the drawing glue. Adding
+      features is getting slower and riskier.
+
+[!!] 5.2 UI is hand-built on the canvas
+      Buttons, the picker, the pause menu and banners are drawn and
+      hit-tested by hand (17 hit-test calls across the two modes, each with
+      hard-coded rectangles). This is where an engine or UI library saves
+      the most time, and where accessibility suffers most (screen readers
+      and keyboard focus can't see canvas buttons).
+
+[!] 5.3 No unit tests, but an excellent equivalence harness
+      tools/compare.js is a strong safety net for "did this refactor
+      change play?". It can't tell you whether play is good. The ad-hoc
+      season, mate and outfit harnesses live outside the repo.
+
+[!] 5.4 Fine as is
+      - Load time and performance: about 5,000 lines total, no
+        dependencies, works offline and from file://.
+      - Saves: versioned and repaired on load.
+      - The service worker and version stamping work.
+
+
+6. WOULD AN ENGINE HAVE BEEN BETTER?
+------------------------------------
+
+What an engine gives you, and whether this game needs it:
+
+  Real physics (rigid bodies, friction, tipping, joints)
+      Needed: YES. This is the big one, but a physics library gives it
+      without an engine (see 7).
+  Animation tools (sprite sheets, skeletal rigs, tweening, timelines)
+      Would help: YES, for the wombat (4.1).
+  Scene, UI and layout tools
+      Would help: YES, the hand-made canvas UI is costly (5.2).
+  Particles, cameras, screen effects
+      Would help: somewhat. The current ones are simple but fine.
+  Audio mixing, music
+      Would help: somewhat.
+  Export to app stores and consoles
+      Only if you want that.
+  Save systems, input, scaling
+      No. Already solved here.
+
+The engine options, honestly:
+
+  Phaser (JavaScript, web-first)
+      + Stays a web game. Built-in scenes, input, tweens, cameras,
+        particles, audio, scaling, plus Matter.js physics.
+      + Your JavaScript skills and much of the logic carry over.
+      - Matter.js is known for jittery tall stacks, the exact case here.
+        Use Planck.js or Rapier with Phaser instead.
+      - The drawn-in-code art would need redoing as sprites to get the
+        most out of it (which is also the fix for 4.1).
+  Godot 4 (free, open source)
+      + A real editor for scenes, animation and UI; good 2D tools; exports
+        to desktop, mobile and web.
+      - Web builds are several megabytes and load noticeably slower,
+        especially on phones. Today's game is tiny and instant.
+      - Everything would be rewritten in GDScript, from scratch.
+      - Its built-in 2D physics is OK at stacking, not great.
+  Unity
+      - Heavy for a small 2D web game; slow web loading; licence history.
+        Not a good fit here.
+
+Verdict: if this had started in Phaser (or Godot), the game would probably
+have real physics and better animation today, because those would have been
+the easy path. But the clunky physics comes from one modelling decision
+("freeze poops, fake the wobble"), and that can be fixed here without
+throwing away the rest.
+
+
+7. RECOMMENDED PATH
+-------------------
+
+Step 1  Physics prototype, side by side (a few days)
+        A standalone page, physics-lab.html, using a real 2D physics
+        library:
+          - Planck.js: a Box2D port, pure JavaScript, deterministic, good
+            at stacking.
+          - Rapier: WebAssembly, very stable stacks, with a deterministic
+            build.
+        Poops are real boxes with friction and a little rounding; the
+        platform is a moving body that carries them with inertia; the
+        wombat drops poops exactly as now. No campaign, no upgrades: just
+        "is stacking fun now?". Tune friction, mass, damping and sleeping
+        until tall stacks are stable but nervous, then play it against the
+        current endless on your phone.
+
+        Watch-outs: rigid-body stacks on a moving platform can feel too
+        slippery or too twitchy. Tricky Towers shows it can be great, but
+        it takes tuning time, and it's the step to decide on before
+        anything else.
+
+Step 2  If the prototype wins: swap the stacking core
+        Replace stepPlops / updateStack / the fake wobble with the physics
+        world, behind the same S (run) object, so the modes, HUD, saves,
+        campaign and Workshop keep working. Rework the physics-based
+        upgrades as real physics (Sticky Pad = higher friction, Heavy Base
+        = heavier bottom poops, Springs = restitution). Topple becomes
+        "poops fell off", with partial losses instead of instant game over.
+        The determinism harness still works: both libraries are
+        deterministic in the same browser.
+
+Step 3  Design trim and focus (alongside step 2)
+        - Make the wombat readable (rhythm, telegraphed squat) and show
+          the next poop.
+        - Give mate and rival levels different goals.
+        - Cut or merge the upgrades the player can't feel.
+        - One HUD layout for both modes, with less text.
+
+Step 4  Presentation
+        - Keyframed wombat animation (squat, strain, relief, celebrate,
+          watch the tower nervously).
+        - More room at the top of the screen.
+        - Habitats.
+        - Music.
+        - Replace emoji icons with drawn ones.
+
+Step 5  Only if you want app stores, consoles or a much bigger game
+        Port to Godot, or to Phaser for web-plus-wrappers, using the tuned
+        physics and design from steps 1-4 as the spec. A rebuild then
+        copies a game you know is fun, instead of hoping an engine makes
+        it fun.
+
+The one thing I'd do first: Step 1. It answers your question with your own
+hands instead of my reading of the code, and it's cheap to throw away if the
+current feel turns out to be the better game.
